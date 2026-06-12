@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Sistema de Inventario de Utensilios</title>
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#111827;--ink2:#4B5563;--ink3:#9CA3AF;
+  --bg:#F9FAFB;--bg2:#fff;--bg3:#F3F4F6;
+  --border:#E5E7EB;--border2:#D1D5DB;
+  --accent:#0D6EFD;--accent-bg:#EFF6FF;
+  --green:#059669;--green-bg:#ECFDF5;
+  --red:#DC2626;--red-bg:#FEF2F2;
+  --amber:#D97706;--amber-bg:#FFFBEB;
+  --radius:10px;--radius-sm:6px;--radius-lg:14px;
+  --shadow:0 1px 3px rgba(0,0,0,.08);
+}
+html,body{font-family:'DM Sans',sans-serif;font-size:14px;color:var(--ink);background:var(--bg);line-height:1.5;min-height:100vh}
+.app{display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--ink);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-brand{display:flex;align-items:center;gap:8px}
+.topbar-logo{width:30px;height:30px;background:#fff2;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.topbar-name{font-size:13px;font-weight:600}
+.topbar-sub{font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.3px}
+.sync-pill{display:flex;align-items:center;gap:5px;font-size:11px;background:#fff1;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#9CA3AF;flex-shrink:0}
+.nav{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;padding:0 4px;overflow-x:auto;position:sticky;top:54px;z-index:40}
+.nav::-webkit-scrollbar{display:none}
+.nav-btn{background:none;border:none;padding:10px 10px;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:5px;white-space:nowrap;font-weight:500}
+.nav-btn i{font-size:14px}
+.nav-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.content{padding:16px;flex:1}
+.section{display:none}.section.on{display:block}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card-title{font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:5px}
+.card-title i{font-size:13px;color:var(--accent)}
+.metrics-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.metric-val{font-size:26px;font-weight:600;font-family:'DM Mono',monospace;letter-spacing:-1px}
+.metric-label{font-size:10px;color:var(--ink3);margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.metric-sub{font-size:11px;margin-top:3px;font-weight:500}
+.tbl-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead{background:var(--bg3)}
+th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.4px;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.code-tag{font-family:'DM Mono',monospace;font-size:10px;background:var(--bg3);border:1px solid var(--border);padding:2px 6px;border-radius:4px;color:var(--ink2);font-weight:500;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap}
+.b-ok{background:var(--green-bg);color:var(--green)}
+.b-low{background:var(--amber-bg);color:var(--amber)}
+.b-out{background:var(--red-bg);color:var(--red)}
+.b-blue{background:var(--accent-bg);color:var(--accent)}
+.b-gray{background:var(--bg3);color:var(--ink2)}
+.form-row{display:grid;gap:10px;margin-bottom:10px}
+.form-row.c2{grid-template-columns:1fr 1fr}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:10px;font-weight:700;color:var(--ink2);letter-spacing:.3px;text-transform:uppercase}
+.fg input,.fg select,.fg textarea{border:1px solid var(--border2);border-radius:var(--radius-sm);padding:9px 10px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--ink);background:var(--bg2);outline:none;width:100%}
+.fg input:focus,.fg select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(13,110,253,.1)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--bg2);color:var(--ink);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-danger{background:var(--red-bg);color:var(--red);border-color:#FECACA}
+.btn-sm{padding:6px 10px;font-size:12px}
+.btn-xs{padding:3px 8px;font-size:11px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.alert{padding:10px 12px;border-radius:var(--radius-sm);font-size:12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:7px;border:1px solid}
+.alert i{font-size:14px;flex-shrink:0;margin-top:1px}
+.alert-info{background:var(--accent-bg);color:var(--accent);border-color:#BFDBFE}
+.alert-warn{background:var(--amber-bg);color:var(--amber);border-color:#FDE68A}
+.aud-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;overflow-x:auto}
+.aud-grid{display:grid;grid-template-columns:1.8fr 65px 65px 65px 65px 65px 80px;gap:4px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;min-width:520px}
+.aud-grid.head{background:var(--bg3);font-size:9px;font-weight:700;color:var(--ink3);letter-spacing:.5px;text-transform:uppercase;padding:8px 10px}
+.num-in{width:62px;padding:5px 4px;font-size:13px;text-align:center;border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:'DM Mono',monospace;background:var(--bg2);color:var(--ink);outline:none}
+.num-in[readonly]{background:var(--bg3);color:var(--ink2)}
+.diff-pos{color:var(--green);font-weight:600;font-family:'DM Mono',monospace}
+.diff-neg{color:var(--red);font-weight:600;font-family:'DM Mono',monospace}
+.diff-zero{color:var(--ink3);font-family:'DM Mono',monospace}
+.filter-bar{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
+.empty{text-align:center;padding:40px 20px;color:var(--ink3)}
+.empty i{font-size:36px;display:block;margin-bottom:8px;opacity:.3}
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.sec-title{font-size:16px;font-weight:600;display:flex;align-items:center;gap:7px}
+.sec-title i{color:var(--accent)}
+.hist-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)}
+.hist-header{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:8px}
+.hist-body{display:none;border-top:1px solid var(--border);overflow-x:auto}
+.hist-body.on{display:block}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:var(--bg3);color:var(--ink2);border:1px solid var(--border)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:200}
+.overlay.on{display:flex}
+.modal{background:var(--bg2);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:24px;width:100%;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.modal-title{font-size:15px;font-weight:600}
+input[type=file]{display:none}
+#toast-container{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;width:90%;max-width:360px}
+.toast{padding:12px 16px;border-radius:var(--radius-sm);font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.15);border:1px solid;display:flex;align-items:center;gap:8px}
+.toast-ok{background:var(--green-bg);color:var(--green);border-color:#BBF7D0}
+.toast-err{background:var(--red-bg);color:var(--red);border-color:#FECACA}
+.toast-info{background:var(--accent-bg);color:var(--accent);border-color:#BFDBFE}
+</style>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app">
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-logo"><i class="ti ti-clipboard-check" style="font-size:15px"></i></div>
+    <div>
+      <div class="topbar-name">Inventario de Utensilios</div>
+      <div class="topbar-sub">Gestion · Auditoria · Trazabilidad</div>
+    </div>
+  </div>
+  <div class="sync-pill"><span class="sync-dot" id="sync-dot"></span><span id="sync-lbl">Cargando...</span></div>
+</div>
+<div class="nav">
+  <button class="nav-btn active" onclick="tab('dashboard')" id="tnav-dashboard"><i class="ti ti-layout-dashboard"></i>Dashboard</button>
+  <button class="nav-btn" onclick="tab('utensilios')" id="tnav-utensilios"><i class="ti ti-tool"></i>Utensilios</button>
+  <button class="nav-btn" onclick="tab('inventario')" id="tnav-inventario"><i class="ti ti-box"></i>Inv.Inicial</button>
+  <button class="nav-btn" onclick="tab('auditoria')" id="tnav-auditoria"><i class="ti ti-clipboard-list"></i>Auditoria</button>
+  <button class="nav-btn" onclick="tab('historial')" id="tnav-historial"><i class="ti ti-history"></i>Historial</button>
+  <button class="nav-btn" onclick="tab('config')" id="tnav-config"><i class="ti ti-settings"></i>Config</button>
+</div>
+<div class="content">
+
+<div class="section on" id="s-dashboard">
+  <div class="sec-header">
+    <div class="sec-title"><i class="ti ti-layout-dashboard"></i>Resumen</div>
+    <select id="d-sede" onchange="renderDash()" style="font-size:12px;padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;background:var(--bg2);color:var(--ink)"></select>
+  </div>
+  <div class="metrics-row" id="d-metrics"></div>
+  <div class="card"><div class="card-title"><i class="ti ti-building"></i>Estado por sede</div><div id="d-sedes"></div></div>
+  <div class="card"><div class="card-title"><i class="ti ti-alert-triangle"></i>Alertas de stock</div><div id="d-alertas"></div></div>
+</div>
+
+<div class="section" id="s-utensilios">
+  <div class="sec-header">
+    <div class="sec-title"><i class="ti ti-tool"></i>Utensilios</div>
+    <div class="btns">
+      <button class="btn btn-sm" onclick="triggerFile('f-uten')"><i class="ti ti-file-import"></i>Importar</button>
+      <button class="btn btn-sm btn-primary" onclick="openModal('ov-uten')"><i class="ti ti-plus"></i>Agregar</button>
+    </div>
+  </div>
+  <input type="file" id="f-uten" accept=".xlsx,.xls,.csv" onchange="importUtensilios(this)">
+  <div class="alert alert-info"><i class="ti ti-info-circle"></i>Excel: columnas <strong>CODIGO</strong>, <strong>NOMBRE</strong>, <strong>UNIDAD</strong>. Unidad siempre "unidad".</div>
+  <div class="tbl-wrap"><table><thead><tr><th>Codigo</th><th>Nombre</th><th></th></tr></thead><tbody id="tb-uten"></tbody></table></div>
+</div>
+
+<div class="section" id="s-inventario">
+  <div class="sec-header"><div class="sec-title"><i class="ti ti-box"></i>Inventario Inicial</div></div>
+  <div class="card">
+    <div class="fg" style="margin-bottom:10px"><label>Sede</label><select id="iv-sede" onchange="loadInvForm()"><option value="">Seleccionar</option></select></div>
+    <div class="form-row c2">
+      <div class="fg"><label>Periodo</label><input type="month" id="iv-mes"></div>
+      <div class="fg"><label>Notas</label><input type="text" id="iv-notas" placeholder="Opcional"></div>
+    </div>
+    <div class="btns" style="margin-top:6px">
+      <button class="btn btn-sm" onclick="triggerFile('f-inv')"><i class="ti ti-file-import"></i>Importar Excel</button>
+      <small style="color:var(--ink3);font-size:11px">Excel: CODIGO, CANTIDAD</small>
+    </div>
+    <input type="file" id="f-inv" accept=".xlsx,.xls,.csv" onchange="importInv(this)">
+  </div>
+  <div id="inv-form-body"></div>
+  <div id="inv-actions" style="display:none;margin-top:4px">
+    <button class="btn btn-primary" onclick="saveInv()"><i class="ti ti-device-floppy"></i>Guardar inventario inicial</button>
+  </div>
+</div>
+
+<div class="section" id="s-auditoria">
+  <div class="sec-header"><div class="sec-title"><i class="ti ti-clipboard-list"></i>Auditoria</div></div>
+  <div class="card">
+    <div class="fg" style="margin-bottom:10px"><label>Sede</label><select id="au-sede" onchange="loadAudForm()"><option value="">Seleccionar</option></select></div>
+    <div class="form-row c2">
+      <div class="fg"><label>Periodo</label><input type="month" id="au-mes"></div>
+      <div class="fg"><label>Notas</label><input type="text" id="au-notas" placeholder="Observaciones..."></div>
+    </div>
+    <div class="fg" style="margin-top:8px"><label>Cargar inventario inicial</label>
+      <select id="au-inv-sel" onchange="loadInvIntoAud()"><option value="">Seleccionar registro</option></select>
+    </div>
+    <div class="btns" style="margin-top:8px">
+      <button class="btn btn-sm" onclick="triggerFile('f-final')"><i class="ti ti-file-import"></i>Importar inventario final (Excel)</button>
+    </div>
+    <input type="file" id="f-final" accept=".xlsx,.xls,.csv" onchange="importFinal(this)">
+  </div>
+  <div id="aud-form-body"></div>
+  <div id="aud-actions" style="display:none;margin-top:4px">
+    <button class="btn btn-primary" onclick="saveAud()"><i class="ti ti-device-floppy"></i>Guardar auditoria</button>
+    <p style="font-size:11px;color:var(--ink3);margin-top:6px"><i class="ti ti-info-circle" style="font-size:11px"></i> El resultado pasa como inv. inicial del proximo mes automaticamente</p>
+  </div>
+</div>
+
+<div class="section" id="s-historial">
+  <div class="sec-header">
+    <div class="sec-title"><i class="ti ti-history"></i>Historial</div>
+    <button class="btn btn-sm btn-success" onclick="exportAllHistory()"><i class="ti ti-file-export"></i>Exportar</button>
+  </div>
+  <div class="filter-bar">
+    <div class="form-row c2" style="margin-bottom:8px">
+      <div class="fg"><label>Tipo</label><select id="fil-tipo" onchange="renderHist()"><option value="">Todos</option><option value="inventario">Inventarios</option><option value="auditoria">Auditorias</option></select></div>
+      <div class="fg"><label>Sede</label><select id="fil-sede" onchange="renderHist()"><option value="">Todas</option></select></div>
+    </div>
+    <div class="form-row c2" style="margin-bottom:0">
+      <div class="fg"><label>Periodo</label><input type="month" id="fil-mes" onchange="renderHist()"></div>
+      <div class="fg"><label>Buscar</label><input type="text" id="fil-uten" placeholder="Codigo o nombre..." oninput="renderHist()"></div>
+    </div>
+    <button class="btn btn-sm" style="margin-top:8px" onclick="clearFil()"><i class="ti ti-x"></i> Limpiar</button>
+  </div>
+  <div id="hist-list"></div>
+</div>
+
+<div class="section" id="s-config">
+  <div class="sec-title" style="margin-bottom:14px"><i class="ti ti-settings"></i>Configuracion</div>
+  <div class="sec-header" style="margin-bottom:10px">
+    <span style="font-size:14px;font-weight:600">Sedes</span>
+    <button class="btn btn-sm btn-primary" onclick="openModal('ov-sede')"><i class="ti ti-plus"></i>Agregar</button>
+  </div>
+  <div class="tbl-wrap" style="margin-bottom:16px"><table><thead><tr><th>Sede</th><th>Ciudad</th><th></th></tr></thead><tbody id="tb-sedes"></tbody></table></div>
+  <div style="font-size:14px;font-weight:600;margin-bottom:10px">Stock minimo por sede</div>
+  <div class="card">
+    <div class="fg" style="margin-bottom:12px"><label>Sede</label><select id="st-sede" onchange="renderStockTable()"><option value="">Seleccionar</option></select></div>
+    <div id="st-body"></div>
+  </div>
+  <div style="font-size:14px;font-weight:600;margin-bottom:10px">Backup</div>
+  <div class="card">
+    <div class="btns" style="flex-direction:column;align-items:stretch;gap:8px">
+      <button class="btn btn-sm" onclick="exportDB()"><i class="ti ti-download"></i>Exportar backup (.json)</button>
+      <button class="btn btn-sm" onclick="triggerFile('f-import-db')"><i class="ti ti-upload"></i>Importar backup (.json)</button>
+      <input type="file" id="f-import-db" accept=".json" onchange="importDB(this)">
+      <div style="font-size:11px;color:var(--ink3);margin-top:2px"><i class="ti ti-database" style="font-size:12px"></i> Datos guardados en Firebase (Google Cloud) - Sin login requerido</div>
+    </div>
+  </div>
+</div>
+
+</div></div>
+
+<div class="overlay" id="ov-sede" onclick="closeOnBg(event,'ov-sede')">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Nueva Sede</div><button class="btn btn-xs" onclick="closeModal('ov-sede')"><i class="ti ti-x"></i></button></div>
+    <div class="fg" style="margin-bottom:10px"><label>Nombre</label><input id="mn-sede" placeholder="Ej: Sede Norte"></div>
+    <div class="fg" style="margin-bottom:16px"><label>Ciudad / Direccion</label><input id="mn-ciudad" placeholder="Ciudad o direccion"></div>
+    <div class="btns"><button class="btn btn-primary" onclick="saveSede()"><i class="ti ti-check"></i>Guardar</button><button class="btn" onclick="closeModal('ov-sede')">Cancelar</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-uten" onclick="closeOnBg(event,'ov-uten')">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Nuevo Utensilio</div><button class="btn btn-xs" onclick="closeModal('ov-uten')"><i class="ti ti-x"></i></button></div>
+    <div class="form-row c2" style="margin-bottom:10px">
+      <div class="fg"><label>Codigo</label><input id="mu-cod" placeholder="Ej: COD001" style="text-transform:uppercase;font-family:'DM Mono',monospace"></div>
+      <div class="fg"><label>Nombre</label><input id="mu-nom" placeholder="Ej: Cuchillo chef"></div>
+    </div>
+    <div class="alert alert-info" style="margin-bottom:14px"><i class="ti ti-info-circle"></i>Unidad estandarizada: <strong>unidad</strong></div>
+    <div class="btns"><button class="btn btn-primary" onclick="saveUten()"><i class="ti ti-check"></i>Guardar</button><button class="btn" onclick="closeModal('ov-uten')">Cancelar</button></div>
+  </div>
+</div>
+
+<script>
+const FB = 'https://inventario-utensilios-9df49-default-rtdb.firebaseio.com';
+let DB = {sedes:[],utensilios:[],stockMin:{},inventarios:[],auditorias:[]};
+let saving = false;
+
+async function fbGet(p){const r=await fetch(FB+'/'+p+'.json');if(!r.ok)throw new Error();return r.json();}
+async function fbSet(p,d){const r=await fetch(FB+'/'+p+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(!r.ok)throw new Error();}
+
+async function loadAll(){
+  setSc('loading','Cargando...');
+  try{
+    const d=await fbGet('db');
+    if(d){DB.sedes=d.sedes||[];DB.utensilios=d.utensilios||[];DB.stockMin=d.stockMin||{};DB.inventarios=d.inventarios||[];DB.auditorias=d.auditorias||[];}
+    setSc('ok','Firebase activo');initUI();
+  }catch(e){setSc('err','Sin conexion');toast('Error al conectar con Firebase','err');}
+}
+
+async function saveAll(){
+  if(saving)return;saving=true;setSc('loading','Guardando...');
+  try{await fbSet('db',DB);setSc('ok','Guardado');}
+  catch(e){setSc('err','Error al guardar');toast('Error al guardar','err');}
+  saving=false;
+}
+
+function setSc(s,m){
+  const dot=document.getElementById('sync-dot'),lbl=document.getElementById('sync-lbl');
+  if(lbl)lbl.textContent=m;
+  if(dot)dot.style.background=s==='ok'?'#34D399':s==='loading'?'#FBBF24':'#F87171';
+}
+
+function initUI(){fillSedes();renderDash();renderUten();renderCfg();}
+
+function fillSedes(){
+  ['d-sede','iv-sede','au-sede','fil-sede','st-sede'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const v=el.value;
+    const all=id==='d-sede'||id==='fil-sede';
+    el.innerHTML=all?'<option value="">Todas</option>':'<option value="">Seleccionar</option>';
+    DB.sedes.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;el.appendChild(o);});
+    if(v)el.value=v;
+  });
+}
+
+function tab(t){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('s-'+t).classList.add('on');
+  document.getElementById('tnav-'+t).classList.add('active');
+  if(t==='historial')renderHist();
+  if(t==='dashboard')renderDash();
+  if(t==='config')renderCfg();
+  if(t==='auditoria')loadAudSel();
+}
+
+function openModal(id){document.getElementById(id).classList.add('on');document.body.style.overflow='hidden';}
+function closeModal(id){document.getElementById(id).classList.remove('on');document.body.style.overflow='';}
+function closeOnBg(e,id){if(e.target.classList.contains('overlay'))closeModal(id);}
+function triggerFile(id){document.getElementById(id).click();}
+
+function renderUten(){
+  const tb=document.getElementById('tb-uten');
+  if(!DB.utensilios.length){tb.innerHTML='<tr><td colspan="3"><div class="empty"><i class="ti ti-tool"></i><p>Sin utensilios</p></div></td></tr>';return;}
+  tb.innerHTML=DB.utensilios.map(u=>'<tr><td><span class="code-tag">'+u.codigo+'</span></td><td style="font-weight:500">'+u.nombre+'</td><td><button class="btn btn-xs btn-danger" onclick="delUten(\''+u.id+'\')"><i class="ti ti-trash"></i></button></td></tr>').join('');
+}
+
+async function saveUten(){
+  const cod=document.getElementById('mu-cod').value.trim().toUpperCase();
+  const nom=document.getElementById('mu-nom').value.trim();
+  if(!cod||!nom){toast('Codigo y nombre requeridos','err');return;}
+  if(DB.utensilios.find(u=>u.codigo===cod)){toast('Ese codigo ya existe','err');return;}
+  DB.utensilios.push({id:'u-'+Date.now(),codigo:cod,nombre:nom,unidad:'unidad'});
+  document.getElementById('mu-cod').value='';document.getElementById('mu-nom').value='';
+  closeModal('ov-uten');await saveAll();renderUten();toast('Utensilio guardado','ok');
+}
+
+async function delUten(id){
+  if(!confirm('Eliminar este utensilio?'))return;
+  DB.utensilios=DB.utensilios.filter(u=>u.id!==id);await saveAll();renderUten();
+}
+
+function importUtensilios(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=async e=>{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+    let added=0,skip=0;
+    rows.forEach((row,i)=>{
+      if(i===0)return;
+      const cod=(row[0]||'').toString().trim().toUpperCase();
+      const nom=(row[1]||'').toString().trim();
+      if(!cod||!nom){skip++;return;}
+      if(DB.utensilios.find(u=>u.codigo===cod)){skip++;return;}
+      DB.utensilios.push({id:'u-'+Date.now()+'-'+i,codigo:cod,nombre:nom,unidad:'unidad'});added++;
+    });
+    await saveAll();renderUten();
+    toast(added+' importados'+(skip?' ('+skip+' omitidos)':''),'ok');inp.value='';
+  };
+  r.readAsArrayBuffer(f);
+}
+
+function loadInvForm(){
+  const sid=document.getElementById('iv-sede').value;
+  const body=document.getElementById('inv-form-body'),actions=document.getElementById('inv-actions');
+  if(!sid){body.innerHTML='';actions.style.display='none';return;}
+  if(!DB.utensilios.length){body.innerHTML='<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>Sin utensilios configurados.</div>';actions.style.display='none';return;}
+  renderInvTable();actions.style.display='block';
+}
+
+function renderInvTable(pre){
+  let h='<div class="aud-wrap"><div style="display:grid;grid-template-columns:1.8fr 80px;gap:4px;padding:8px 10px;background:var(--bg3);font-size:9px;font-weight:700;color:var(--ink3);text-transform:uppercase;border-bottom:1px solid var(--border);min-width:260px"><div>Codigo / Utensilio</div><div>Cantidad</div></div>';
+  DB.utensilios.forEach(u=>{
+    const v=(pre&&pre[u.codigo]!==undefined)?pre[u.codigo]:0;
+    h+='<div style="display:grid;grid-template-columns:1.8fr 80px;gap:4px;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;min-width:260px"><div><span class="code-tag">'+u.codigo+'</span> <span style="font-weight:500">'+u.nombre+'</span></div><div><input class="num-in" type="number" min="0" id="iv-q-'+u.id+'" value="'+v+'"></div></div>';
+  });
+  document.getElementById('inv-form-body').innerHTML=h+'</div>';
+}
+
+function importInv(inp){
+  const f=inp.files[0];if(!f)return;
+  if(!document.getElementById('iv-sede').value){toast('Selecciona sede primero','err');inp.value='';return;}
+  const r=new FileReader();
+  r.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+    const map={};rows.forEach((row,i)=>{if(i===0)return;const cod=(row[0]||'').toString().trim().toUpperCase();const qty=parseFloat(row[1])||0;if(cod)map[cod]=qty;});
+    renderInvTable(map);document.getElementById('inv-actions').style.display='block';
+    toast('Datos cargados. Revisa y guarda.','ok');inp.value='';
+  };
+  r.readAsArrayBuffer(f);
+}
+
+async function saveInv(){
+  const sid=document.getElementById('iv-sede').value,mes=document.getElementById('iv-mes').value,notas=document.getElementById('iv-notas').value;
+  if(!sid||!mes){toast('Selecciona sede y periodo','err');return;}
+  const cant={};DB.utensilios.forEach(u=>{cant[u.id]=parseInt(document.getElementById('iv-q-'+u.id)?.value)||0;});
+  DB.inventarios.push({id:'inv-'+Date.now(),sedeId:sid,mes,notas,cantidades:cant,tipo:'manual',creadoEn:new Date().toISOString()});
+  await saveAll();toast('Inventario inicial guardado','ok');
+  document.getElementById('inv-form-body').innerHTML='';document.getElementById('inv-actions').style.display='none';document.getElementById('iv-sede').value='';
+  loadAudSel();
+}
+
+function loadAudSel(){
+  const sid=document.getElementById('au-sede').value,sel=document.getElementById('au-inv-sel');
+  sel.innerHTML='<option value="">Seleccionar registro</option>';
+  DB.inventarios.filter(i=>!sid||i.sedeId===sid).sort((a,b)=>b.mes.localeCompare(a.mes)).forEach(i=>{
+    const s=DB.sedes.find(s=>s.id===i.sedeId);
+    const o=document.createElement('option');o.value=i.id;o.textContent=(s?s.nombre:'?')+' - '+i.mes+(i.tipo==='auto'?' (auto)':'');sel.appendChild(o);
+  });
+}
+
+function loadAudForm(){loadAudSel();renderAudTable();}
+
+function renderAudTable(preIni,preFin){
+  const sid=document.getElementById('au-sede').value;
+  const body=document.getElementById('aud-form-body'),actions=document.getElementById('aud-actions');
+  if(!sid||!DB.utensilios.length){body.innerHTML='';actions.style.display='none';return;}
+  actions.style.display='block';
+  let h='<div class="aud-wrap"><div class="aud-grid head"><div>Codigo / Utensilio</div><div>Ini.</div><div>Entr.</div><div>Sal.</div><div>Final</div><div>Dif.</div><div>Estado</div></div>';
+  DB.utensilios.forEach(u=>{
+    const iv=(preIni&&preIni[u.id]!==undefined)?preIni[u.id]:0;
+    const fv=(preFin&&preFin[u.id]!==undefined)?preFin[u.id]:0;
+    h+='<div class="aud-grid"><div><span class="code-tag">'+u.codigo+'</span><br><span style="font-size:11px">'+u.nombre+'</span></div>';
+    h+='<div><input class="num-in" readonly id="ai-'+u.id+'" value="'+iv+'"></div>';
+    h+='<div><input class="num-in" type="number" min="0" id="ae-'+u.id+'" value="0" oninput="calcRow(\''+u.id+'\')"></div>';
+    h+='<div><input class="num-in" type="number" min="0" id="as-'+u.id+'" value="0" oninput="calcRow(\''+u.id+'\')"></div>';
+    h+='<div><input class="num-in" type="number" min="0" id="af-'+u.id+'" value="'+fv+'" oninput="calcRow(\''+u.id+'\')"></div>';
+    h+='<div id="ad-'+u.id+'" class="diff-zero">0</div><div id="ast-'+u.id+'" style="font-size:10px">-</div></div>';
+  });
+  body.innerHTML=h+'</div><div class="alert alert-info" style="margin-top:8px;font-size:11px"><i class="ti ti-calculator"></i>Dif. = (Ini + Entr.) - (Final + Sal.)</div>';
+  DB.utensilios.forEach(u=>calcRow(u.id));
+}
+
+function loadInvIntoAud(){
+  const id=document.getElementById('au-inv-sel').value;
+  if(!id){renderAudTable();return;}
+  const inv=DB.inventarios.find(i=>i.id===id);if(!inv)return;
+  renderAudTable(inv.cantidades,null);
+}
+
+function calcRow(uid){
+  const g=id=>parseInt(document.getElementById(id)?.value)||0;
+  const ini=g('ai-'+uid),ent=g('ae-'+uid),sal=g('as-'+uid),fin=g('af-'+uid);
+  const diff=(ini+ent)-(fin+sal);
+  const dd=document.getElementById('ad-'+uid),ds=document.getElementById('ast-'+uid);
+  if(dd){dd.textContent=(diff>=0?'+':'')+diff;dd.className=diff>0?'diff-pos':diff<0?'diff-neg':'diff-zero';}
+  const sid=document.getElementById('au-sede').value,min=DB.stockMin[sid+'_'+uid]||0;
+  if(ds){if(min>0){if(fin<min)ds.innerHTML='<span class="badge '+(fin===0?'b-out':'b-low')+'">'+(fin===0?'Sin stk':'Bajo')+'</span>';else ds.innerHTML='<span class="badge b-ok">OK</span>';}else ds.innerHTML='<span class="badge b-gray">-</span>';}
+}
+
+function importFinal(inp){
+  const f=inp.files[0];if(!f)return;
+  if(!document.getElementById('au-sede').value){toast('Selecciona sede primero','err');inp.value='';return;}
+  const r=new FileReader();
+  r.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+    const map={};rows.forEach((row,i)=>{if(i===0)return;const cod=(row[0]||'').toString().trim().toUpperCase();const qty=parseFloat(row[1])||0;if(cod)map[cod]=qty;});
+    const byId={};DB.utensilios.forEach(u=>{if(map[u.codigo]!==undefined)byId[u.id]=map[u.codigo];});
+    const inv=DB.inventarios.find(i=>i.id===document.getElementById('au-inv-sel').value);
+    renderAudTable(inv?inv.cantidades:null,byId);toast('Inventario final cargado.','ok');inp.value='';
+  };
+  r.readAsArrayBuffer(f);
+}
+
+async function saveAud(){
+  const sid=document.getElementById('au-sede').value,mes=document.getElementById('au-mes').value,notas=document.getElementById('au-notas').value;
+  if(!sid||!mes){toast('Selecciona sede y periodo','err');return;}
+  const ii={},ent={},sal={},fin={},res={};
+  DB.utensilios.forEach(u=>{
+    const g=id=>parseInt(document.getElementById(id)?.value)||0;
+    ii[u.id]=g('ai-'+u.id);ent[u.id]=g('ae-'+u.id);sal[u.id]=g('as-'+u.id);fin[u.id]=g('af-'+u.id);res[u.id]=fin[u.id];
+  });
+  DB.auditorias.unshift({id:'aud-'+Date.now(),sedeId:sid,mes,notas,invInicial:ii,entradas:ent,salidas:sal,invFinal:fin,resultado:res,creadoEn:new Date().toISOString()});
+  const [y,m]=mes.split('-').map(Number);const next=new Date(y,m,1);
+  const ns=next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0');
+  DB.inventarios.push({id:'inv-auto-'+Date.now(),sedeId:sid,mes:ns,notas:'Auto desde auditoria '+mes,cantidades:res,tipo:'auto',creadoEn:new Date().toISOString()});
+  await saveAll();toast('Auditoria guardada. Inv. inicial '+ns+' creado.','ok');
+  document.getElementById('au-sede').value='';document.getElementById('aud-form-body').innerHTML='';document.getElementById('aud-actions').style.display='none';
+  loadAudSel();
+}
+
+function renderDash(){
+  const sid=document.getElementById('d-sede').value;
+  const sedes=sid?DB.sedes.filter(s=>s.id===sid):DB.sedes;
+  let al=[];
+  sedes.forEach(s=>{
+    const last=DB.auditorias.filter(a=>a.sedeId===s.id).sort((a,b)=>b.mes.localeCompare(a.mes))[0];
+    DB.utensilios.forEach(u=>{const min=DB.stockMin[s.id+'_'+u.id]||0;if(!min)return;const act=last?(last.invFinal[u.id]||0):0;if(act<min)al.push({sede:s.nombre,cod:u.codigo,nombre:u.nombre,actual:act,min});});
+  });
+  const ta=DB.auditorias.filter(a=>!sid||a.sedeId===sid).length;
+  document.getElementById('d-metrics').innerHTML=
+    '<div class="metric"><div class="metric-val" style="color:var(--accent)">'+sedes.length+'</div><div class="metric-label">Sedes</div></div>'+
+    '<div class="metric"><div class="metric-val">'+DB.utensilios.length+'</div><div class="metric-label">Utensilios</div></div>'+
+    '<div class="metric"><div class="metric-val">'+ta+'</div><div class="metric-label">Auditorias</div></div>'+
+    '<div class="metric"><div class="metric-val" style="color:'+(al.length?'var(--red)':'var(--green)')+'">'+al.length+'</div><div class="metric-label">Alertas</div><div class="metric-sub" style="color:'+(al.length?'var(--red)':'var(--green)')+'">'+(al.length?'Atencion':'OK')+'</div></div>';
+  const ds=document.getElementById('d-sedes');
+  if(!sedes.length){ds.innerHTML='<div class="empty"><i class="ti ti-building-off"></i><p>Sin sedes</p></div>';return;}
+  ds.innerHTML=sedes.map(s=>{
+    const auds=DB.auditorias.filter(a=>a.sedeId===s.id).sort((a,b)=>b.mes.localeCompare(a.mes));const last=auds[0];
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)"><div><div style="font-weight:600;font-size:13px">'+s.nombre+'</div><div style="font-size:11px;color:var(--ink3)">'+(s.ciudad||'-')+'</div></div><div style="text-align:right">'+(last?'<span class="chip"><i class="ti ti-calendar" style="font-size:10px"></i>'+last.mes+'</span>':'<span class="badge b-gray">Sin auditoria</span>')+'<div style="font-size:10px;color:var(--ink3);margin-top:2px">'+auds.length+' auditorias</div></div></div>';
+  }).join('');
+  const da=document.getElementById('d-alertas');
+  if(!al.length){da.innerHTML='<div class="empty" style="padding:20px"><i class="ti ti-circle-check" style="color:var(--green);opacity:1"></i><p style="color:var(--green);font-weight:500">Todo en orden</p></div>';return;}
+  da.innerHTML=al.map(a=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><div><span class="code-tag" style="font-size:10px">'+a.cod+'</span> <span style="font-size:12px;font-weight:500">'+a.nombre+'</span><div style="font-size:11px;color:var(--ink3)">'+a.sede+'</div></div><span class="badge '+(a.actual===0?'b-out':'b-low')+'">'+a.actual+'/'+a.min+'</span></div>').join('');
+}
+
+function renderHist(){
+  const tipo=document.getElementById('fil-tipo').value,sid=document.getElementById('fil-sede').value,mes=document.getElementById('fil-mes').value,q=document.getElementById('fil-uten').value.toLowerCase();
+  const el=document.getElementById('hist-list');
+  let items=[];
+  if(!tipo||tipo==='inventario')DB.inventarios.forEach(i=>items.push(Object.assign({},i,{_tipo:'inventario'})));
+  if(!tipo||tipo==='auditoria')DB.auditorias.forEach(a=>items.push(Object.assign({},a,{_tipo:'auditoria'})));
+  if(sid)items=items.filter(i=>i.sedeId===sid);
+  if(mes)items=items.filter(i=>i.mes===mes);
+  if(q){const ids=DB.utensilios.filter(u=>u.codigo.toLowerCase().includes(q)||u.nombre.toLowerCase().includes(q)).map(u=>u.id);items=items.filter(item=>{const c=item._tipo==='inventario'?item.cantidades:item.invFinal;return ids.some(id=>c&&c[id]!==undefined);});}
+  items.sort((a,b)=>(b.mes||'').localeCompare(a.mes||''));
+  if(!items.length){el.innerHTML='<div class="empty"><i class="ti ti-inbox"></i><p>Sin registros</p></div>';return;}
+  const uShow=q?DB.utensilios.filter(u=>u.codigo.toLowerCase().includes(q)||u.nombre.toLowerCase().includes(q)):DB.utensilios;
+  el.innerHTML=items.map(item=>{
+    const sede=DB.sedes.find(s=>s.id===item.sedeId),isAud=item._tipo==='auditoria';
+    const rows=uShow.map(u=>{
+      if(isAud){const ini=item.invInicial?.[u.id]??0,ent=item.entradas?.[u.id]??0,sal=item.salidas?.[u.id]??0,fin=item.invFinal?.[u.id]??0,diff=(ini+ent)-(fin+sal),dc=diff>0?'diff-pos':diff<0?'diff-neg':'diff-zero';return '<tr><td><span class="code-tag">'+u.codigo+'</span></td><td>'+u.nombre+'</td><td>'+ini+'</td><td>'+ent+'</td><td>'+sal+'</td><td>'+fin+'</td><td class="'+dc+'">'+(diff>=0?'+':'')+diff+'</td></tr>';}
+      const qty=item.cantidades?.[u.id]??0;return '<tr><td><span class="code-tag">'+u.codigo+'</span></td><td>'+u.nombre+'</td><td>'+qty+'</td><td colspan="4"><span class="badge '+(item.tipo==='auto'?'b-blue':'b-gray')+'">'+(item.tipo==='auto'?'Auto':'Manual')+'</span></td></tr>';
+    }).join('');
+    return '<div class="hist-card"><div class="hist-header" onclick="toggleHist(\''+item.id+'\')"><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span class="badge '+(isAud?'b-blue':'b-ok')+'">'+(isAud?'Auditoria':'Inv.Inicial')+'</span><span style="font-weight:600;font-size:13px">'+(sede?sede.nombre:'?')+'</span></div><div style="display:flex;align-items:center;gap:6px"><span class="chip"><i class="ti ti-calendar" style="font-size:10px"></i>'+item.mes+'</span>'+(item.notas?'<span style="font-size:11px;color:var(--ink3)">'+item.notas+'</span>':'')+'</div></div><div style="display:flex;align-items:center;gap:6px;flex-shrink:0"><button class="btn btn-xs btn-success" onclick="event.stopPropagation();exportItem(\''+item._tipo+'\',\''+item.id+'\')"><i class="ti ti-file-export"></i></button><button class="btn btn-xs btn-danger" onclick="event.stopPropagation();delItem(\''+item._tipo+'\',\''+item.id+'\')"><i class="ti ti-trash"></i></button><i class="ti ti-chevron-down" style="font-size:13px;color:var(--ink3)"></i></div></div><div class="hist-body" id="hb-'+item.id+'"><table><thead><tr><th>Cod.</th><th>Utensilio</th>'+(isAud?'<th>Ini.</th><th>Ent.</th><th>Sal.</th><th>Fin.</th><th>Dif.</th>':'<th>Cant.</th><th colspan="4">Origen</th>')+'</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  }).join('');
+}
+
+function toggleHist(id){document.getElementById('hb-'+id).classList.toggle('on');}
+function clearFil(){['fil-tipo','fil-sede','fil-mes'].forEach(id=>document.getElementById(id).value='');document.getElementById('fil-uten').value='';renderHist();}
+
+async function delItem(tipo,id){
+  if(!confirm('Eliminar este registro?'))return;
+  if(tipo==='inventario')DB.inventarios=DB.inventarios.filter(i=>i.id!==id);
+  else DB.auditorias=DB.auditorias.filter(a=>a.id!==id);
+  await saveAll();renderHist();renderDash();
+}
+
+function renderCfg(){
+  const tb=document.getElementById('tb-sedes');
+  tb.innerHTML=DB.sedes.length?DB.sedes.map(s=>'<tr><td style="font-weight:500">'+s.nombre+'</td><td style="color:var(--ink3)">'+(s.ciudad||'-')+'</td><td><button class="btn btn-xs btn-danger" onclick="delSede(\''+s.id+'\')"><i class="ti ti-trash"></i></button></td></tr>').join(''):'<tr><td colspan="3"><div class="empty" style="padding:16px">Sin sedes</div></td></tr>';
+}
+
+async function saveSede(){
+  const nom=document.getElementById('mn-sede').value.trim(),ciu=document.getElementById('mn-ciudad').value.trim();
+  if(!nom)return;
+  DB.sedes.push({id:'s-'+Date.now(),nombre:nom,ciudad:ciu});
+  document.getElementById('mn-sede').value='';document.getElementById('mn-ciudad').value='';
+  closeModal('ov-sede');await saveAll();fillSedes();renderCfg();renderDash();toast('Sede guardada','ok');
+}
+
+async function delSede(id){
+  if(!confirm('Eliminar sede y todos sus registros?'))return;
+  DB.sedes=DB.sedes.filter(s=>s.id!==id);DB.auditorias=DB.auditorias.filter(a=>a.sedeId!==id);DB.inventarios=DB.inventarios.filter(i=>i.sedeId!==id);
+  Object.keys(DB.stockMin).forEach(k=>{if(k.startsWith(id+'_'))delete DB.stockMin[k];});
+  await saveAll();fillSedes();renderCfg();renderDash();
+}
+
+function renderStockTable(){
+  const sid=document.getElementById('st-sede').value,body=document.getElementById('st-body');
+  if(!sid){body.innerHTML='<p style="font-size:13px;color:var(--ink3)">Selecciona una sede</p>';return;}
+  if(!DB.utensilios.length){body.innerHTML='<p style="font-size:13px;color:var(--ink3)">Sin utensilios</p>';return;}
+  body.innerHTML='<div class="tbl-wrap"><table><thead><tr><th>Cod.</th><th>Utensilio</th><th>Min.</th></tr></thead><tbody>'+DB.utensilios.map(u=>{const k=sid+'_'+u.id,v=DB.stockMin[k]||0;return '<tr><td><span class="code-tag">'+u.codigo+'</span></td><td style="font-weight:500">'+u.nombre+'</td><td><input class="num-in" type="number" min="0" value="'+v+'" style="width:62px" onchange="updStock(\''+sid+'\',\''+u.id+'\',this.value)"></td></tr>';}).join('')+'</tbody></table></div>';
+}
+
+async function updStock(sId,uId,v){DB.stockMin[sId+'_'+uId]=parseInt(v)||0;await saveAll();}
+
+function exportItem(tipo,id){
+  const item=tipo==='inventario'?DB.inventarios.find(i=>i.id===id):DB.auditorias.find(a=>a.id===id);if(!item)return;
+  const sede=DB.sedes.find(s=>s.id===item.sedeId);
+  const rows=[tipo==='inventario'?['Codigo','Utensilio','Cantidad']:['Codigo','Utensilio','Ini.','Entradas','Salidas','Final','Diferencia']];
+  DB.utensilios.forEach(u=>{if(tipo==='inventario')rows.push([u.codigo,u.nombre,item.cantidades?.[u.id]??0]);else{const i=item.invInicial?.[u.id]??0,e=item.entradas?.[u.id]??0,s=item.salidas?.[u.id]??0,f=item.invFinal?.[u.id]??0;rows.push([u.codigo,u.nombre,i,e,s,f,(i+e)-(f+s)]);}});
+  const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Datos');
+  XLSX.writeFile(wb,tipo+'_'+(sede?sede.nombre:'sede')+'_'+item.mes+'.xlsx');
+}
+
+function exportAllHistory(){
+  const rows=[['Tipo','Sede','Periodo','Codigo','Utensilio','Ini.','Entradas','Salidas','Final','Dif.','Cantidad','Origen']];
+  DB.auditorias.forEach(a=>{const s=DB.sedes.find(x=>x.id===a.sedeId);DB.utensilios.forEach(u=>{const i=a.invInicial?.[u.id]??0,e=a.entradas?.[u.id]??0,sal=a.salidas?.[u.id]??0,f=a.invFinal?.[u.id]??0;rows.push(['Auditoria',s?s.nombre:'',a.mes,u.codigo,u.nombre,i,e,sal,f,(i+e)-(f+sal),'','']);});});
+  DB.inventarios.forEach(i=>{const s=DB.sedes.find(x=>x.id===i.sedeId);DB.utensilios.forEach(u=>{rows.push(['Inv.Inicial',s?s.nombre:'',i.mes,u.codigo,u.nombre,'','','','','',i.cantidades?.[u.id]??0,i.tipo]);});});
+  const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Historial');
+  XLSX.writeFile(wb,'historial_'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+
+function exportDB(){const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='backup_'+new Date().toISOString().split('T')[0]+'.json';a.click();}
+
+function importDB(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=async e=>{
+    try{DB=JSON.parse(e.target.result);await saveAll();initUI();toast('Backup importado','ok');}
+    catch(e){toast('Error: archivo invalido','err');}
+    inp.value='';
+  };
+  r.readAsText(f);
+}
+
+function toast(msg,type){
+  const c=document.getElementById('toast-container'),d=document.createElement('div');
+  d.className='toast toast-'+(type||'info');
+  d.innerHTML='<i class="ti ti-'+(type==='ok'?'circle-check':type==='err'?'circle-x':'info-circle')+'" style="font-size:15px;flex-shrink:0"></i>'+msg;
+  c.appendChild(d);setTimeout(()=>{d.style.opacity='0';d.style.transition='opacity .3s';setTimeout(()=>d.remove(),300);},3500);
+}
+
+window.addEventListener('load',()=>loadAll());
+</script>
+</body>
+</html>
