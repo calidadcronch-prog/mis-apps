@@ -391,8 +391,8 @@ function renderUten() {
       "<td><span class='badge b-gray'>unidad</span></td>" +
       "<td style='font-family:monospace;font-size:12px'>" + val + "</td>" +
       "<td style='white-space:nowrap'>" +
-        "<button class='btn btn-xs' style='background:#EEF2FF;color:#6366F1;border:1px solid #C7D2FE;margin-right:4px' onclick='editUten("" + u.id + "")'><i class='ti ti-pencil'></i></button>" +
-        "<button class='btn btn-xs btn-danger' onclick='delUten("" + u.id + "")'><i class='ti ti-trash'></i></button>" +
+        "<button class='btn btn-xs' style='background:#EEF2FF;color:#6366F1;border:1px solid #C7D2FE;margin-right:4px' onclick='editUten(\"" + u.id + "\")'><i class='ti ti-pencil'></i></button>" +
+        "<button class='btn btn-xs btn-danger' onclick='delUten(\"" + u.id + "\")'><i class='ti ti-trash'></i></button>" +
       "</td></tr>";
   }).join("");
 }
@@ -566,9 +566,9 @@ function renderAudTable(preIni, preFin) {
     h+="<div class='aud-grid' id='aud-row-"+u.id+"' data-search='"+sch+"'>" +
       "<div><span class='code-tag'>"+u.codigo+"</span><br><span style='font-size:11px'>"+u.nombre+"</span></div>" +
       "<div><input class='num-in' readonly id='ai-"+u.id+"' value='"+iv+"'></div>" +
-      "<div><input class='num-in' type='number' min='0' id='ae-"+u.id+"' value='0' oninput='calcRow(""+u.id+"")'></div>" +
-      "<div><input class='num-in' type='number' min='0' id='as-"+u.id+"' value='0' oninput='calcRow(""+u.id+"")'></div>" +
-      "<div><input class='num-in' type='number' min='0' id='af-"+u.id+"' value='"+fv+"' oninput='calcRow(""+u.id+"")'></div>" +
+      "<div><input class='num-in' type='number' min='0' id='ae-"+u.id+"' value='0' oninput='calcRow(\""+u.id+"\")'></div>" +
+      "<div><input class='num-in' type='number' min='0' id='as-"+u.id+"' value='0' oninput='calcRow(\""+u.id+"\")'></div>" +
+      "<div><input class='num-in' type='number' min='0' id='af-"+u.id+"' value='"+fv+"' oninput='calcRow(\""+u.id+"\")'></div>" +
       "<div id='ad-"+u.id+"' class='diff-zero'>0</div>" +
       "<div id='ast-"+u.id+"' style='font-size:10px'>-</div></div>";
   });
@@ -745,7 +745,7 @@ function renderHist() {
       var qty=item.cantidades&&item.cantidades[u.id]||0;return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td>"+u.nombre+"</td><td>"+qty+"</td><td colspan='5'><span class='badge "+(item.tipo==="auto"?"b-blue":"b-gray")+"'>"+(item.tipo==="auto"?"Auto":"Manual")+"</span></td></tr>";
     }).join("");
     var tasaBadge=isAud&&item.tasaExactitud!==undefined?"<span style='font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:"+(item.tasaExactitud>=90?"var(--green-bg)":item.tasaExactitud>=75?"var(--amber-bg)":"var(--red-bg)")+";color:"+(item.tasaExactitud>=90?"var(--green)":item.tasaExactitud>=75?"var(--amber)":"var(--red)")+"'>Exactitud: "+item.tasaExactitud+"%</span>":"";
-    return "<div class='hist-card'><div class='hist-header' onclick='toggleHist(""+item.id+"")'>" +
+    return "<div class='hist-card'><div class='hist-header' onclick='toggleHist(\""+item.id+"\")'>" +
       "<div style='flex:1;min-width:0'><div style='display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px'>" +
         "<span class='badge "+(isAud?"b-blue":"b-ok")+"'>"+(isAud?"Auditoria":"Inv.Inicial")+"</span>" +
         "<span style='font-weight:600;font-size:13px'>"+(sede?sede.nombre:"?")+"</span></div>" +
@@ -754,9 +754,9 @@ function renderHist() {
           (item.notas?"<span style='font-size:11px;color:var(--ink3)'>"+item.notas+"</span>":"") +
           tasaBadge+"</div></div>" +
       "<div style='display:flex;align-items:center;gap:5px;flex-shrink:0'>" +
-        "<button class='btn btn-xs btn-success' onclick='event.stopPropagation();exportItemExcel(""+item._tipo+"",""+item.id+"")'><i class='ti ti-file-spreadsheet'></i>XLS</button>" +
-        "<button class='btn btn-xs' style='background:var(--red-bg);color:var(--red);border-color:#FECACA' onclick='event.stopPropagation();exportItemPDF(""+item._tipo+"",""+item.id+"")'><i class='ti ti-file-type-pdf'></i>PDF</button>" +
-        "<button class='btn btn-xs btn-danger' onclick='event.stopPropagation();delItem(""+item._tipo+"",""+item.id+"")'><i class='ti ti-trash'></i></button>" +
+        "<button class='btn btn-xs btn-success' onclick='event.stopPropagation();exportItemExcel(\""+item._tipo+"\",\""+item.id+"\")'><i class='ti ti-file-spreadsheet'></i>XLS</button>" +
+        "<button class='btn btn-xs' style='background:var(--red-bg);color:var(--red);border-color:#FECACA' onclick='event.stopPropagation();exportItemPDF(\""+item._tipo+"\",\""+item.id+"\")'><i class='ti ti-file-type-pdf'></i>PDF</button>" +
+        "<button class='btn btn-xs btn-danger' onclick='event.stopPropagation();delItem(\""+item._tipo+"\",\""+item.id+"\")'><i class='ti ti-trash'></i></button>" +
         "<i class='ti ti-chevron-down' style='font-size:13px;color:var(--ink3)'></i></div></div>" +
       "<div class='hist-body' id='hb-"+item.id+"'><table><thead><tr><th>Cod.</th><th>Utensilio</th>" +
         (isAud?"<th>Ini.</th><th>Ent.</th><th>Sal.</th><th>Final</th><th>Dif.</th><th>Estado</th>":"<th>Cant.</th><th colspan='5'>Origen</th>") +
@@ -777,7 +777,7 @@ function delItem(tipo,id){
 // ===== CONFIG =====
 function renderCfg() {
   var tb=document.getElementById("tb-sedes");
-  tb.innerHTML=DB.sedes.length?DB.sedes.map(function(s){return "<tr><td style='font-weight:500'>"+s.nombre+"</td><td style='color:var(--ink3)'>"+(s.ciudad||"-")+"</td><td><button class='btn btn-xs btn-danger' onclick='delSede(""+s.id+"")'><i class='ti ti-trash'></i></button></td></tr>";}).join(""):"<tr><td colspan='3'><div class='empty' style='padding:16px'>Sin sedes</div></td></tr>";
+  tb.innerHTML=DB.sedes.length?DB.sedes.map(function(s){return "<tr><td style='font-weight:500'>"+s.nombre+"</td><td style='color:var(--ink3)'>"+(s.ciudad||"-")+"</td><td><button class='btn btn-xs btn-danger' onclick='delSede(\""+s.id+"\")'><i class='ti ti-trash'></i></button></td></tr>";}).join(""):"<tr><td colspan='3'><div class='empty' style='padding:16px'>Sin sedes</div></td></tr>";
 }
 
 function saveSede(){
@@ -803,7 +803,7 @@ function renderStockTable(){
   if(!sid){body.innerHTML="<p style='font-size:13px;color:var(--ink3)'>Selecciona una sede</p>";return;}
   if(!DB.utensilios.length){body.innerHTML="<p style='font-size:13px;color:var(--ink3)'>Sin utensilios</p>";return;}
   body.innerHTML="<div class='tbl-wrap'><table><thead><tr><th>Cod.</th><th>Utensilio</th><th>Min.</th></tr></thead><tbody>"+
-    DB.utensilios.map(function(u){var k=sid+"_"+u.id,v=DB.stockMin[k]||0;return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td style='font-weight:500'>"+u.nombre+"</td><td><input class='num-in' type='number' min='0' value='"+v+"' style='width:62px' onchange='updStock(""+sid+"",""+u.id+"",this.value)'></td></tr>";}).join("")+
+    DB.utensilios.map(function(u){var k=sid+"_"+u.id,v=DB.stockMin[k]||0;return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td style='font-weight:500'>"+u.nombre+"</td><td><input class='num-in' type='number' min='0' value='"+v+"' style='width:62px' onchange='updStock(\""+sid+"\",\""+u.id+"\",this.value)'></td></tr>";}).join("")+
     "</tbody></table></div>";
 }
 
