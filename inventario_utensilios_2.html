@@ -74,7 +74,7 @@ tr:last-child td{border-bottom:none}
 .alert-info{background:var(--accent-bg);color:var(--accent);border-color:#BFDBFE}
 .alert-warn{background:var(--amber-bg);color:var(--amber);border-color:#FDE68A}
 .aud-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;overflow-x:auto}
-.aud-grid{display:grid;grid-template-columns:1.8fr 62px 62px 62px 62px 62px 80px;gap:4px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;min-width:520px}
+.aud-grid{display:grid;grid-template-columns:1.4fr 44px 48px 48px 48px 48px 70px 70px 78px;gap:4px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;min-width:680px}
 .aud-grid.head{background:var(--bg3);font-size:9px;font-weight:700;color:var(--ink3);letter-spacing:.5px;text-transform:uppercase;padding:8px 10px}
 .num-in{width:58px;padding:5px 4px;font-size:13px;text-align:center;border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:"DM Mono",monospace;background:var(--bg2);color:var(--ink);outline:none}
 .num-in[readonly]{background:var(--bg3);color:var(--ink2)}
@@ -125,6 +125,7 @@ input[type=file]{display:none}
   <button class="nav-btn active" onclick="tab('dashboard')" id="tnav-dashboard"><i class="ti ti-layout-dashboard"></i>Dashboard</button>
   <button class="nav-btn" onclick="tab('utensilios')" id="tnav-utensilios"><i class="ti ti-tool"></i>Utensilios</button>
   <button class="nav-btn" onclick="tab('inventario')" id="tnav-inventario"><i class="ti ti-box"></i>Inv.Inicial</button>
+  <button class="nav-btn" onclick="tab('transferencias')" id="tnav-transferencias"><i class="ti ti-transfer"></i>Transferencias</button>
   <button class="nav-btn" onclick="tab('auditoria')" id="tnav-auditoria"><i class="ti ti-clipboard-list"></i>Auditoria</button>
   <button class="nav-btn" onclick="tab('historial')" id="tnav-historial"><i class="ti ti-history"></i>Historial</button>
   <button class="nav-btn" onclick="tab('config')" id="tnav-config"><i class="ti ti-settings"></i>Config</button>
@@ -153,6 +154,13 @@ input[type=file]{display:none}
   </div>
   <input type="file" id="f-uten" accept=".xlsx,.xls,.csv" onchange="importUtensilios(this)">
   <div class="alert alert-info"><i class="ti ti-info-circle"></i>Excel: columnas <strong>CODIGO</strong>, <strong>NOMBRE</strong>, <strong>UNIDAD</strong>. Se puede agregar columna <strong>VALOR</strong>.</div>
+  <div style="margin-bottom:10px">
+    <div style="position:relative">
+      <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:15px;pointer-events:none"></i>
+      <input type="text" id="uten-search" placeholder="Buscar utensilio por codigo o nombre..." oninput="renderUten()" style="padding:9px 10px 9px 34px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;width:100%;outline:none;background:var(--bg2);color:var(--ink)">
+      <span id="uten-search-count" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--ink3)"></span>
+    </div>
+  </div>
   <div class="tbl-wrap" style="margin-bottom:12px">
     <table><thead><tr><th>Codigo</th><th>Nombre</th><th>Unidad</th><th>Valor Unit.</th><th></th></tr></thead><tbody id="tb-uten"></tbody></table>
   </div>
@@ -180,13 +188,41 @@ input[type=file]{display:none}
   </div>
 </div>
 
+<!-- TRANSFERENCIAS -->
+<div class="section" id="s-transferencias">
+  <div class="sec-header"><div class="sec-title"><i class="ti ti-transfer"></i>Transferencias entre Sedes</div></div>
+  <div class="alert alert-info" style="font-size:11px"><i class="ti ti-info-circle"></i>Registra los traslados de utensilios entre sedes. Al auditar una sede en un periodo, las transferencias de ese mes se cargan automaticamente: se suman como <strong>Entradas</strong> en la sede destino y se restan como <strong>Salidas</strong> en la sede origen.</div>
+  <div class="card">
+    <div class="form-row c2">
+      <div class="fg"><label>Sede Origen (sale)</label><select id="tr-origen" onchange="renderTrForm()"><option value="">Seleccionar</option></select></div>
+      <div class="fg"><label>Sede Destino (entra)</label><select id="tr-destino" onchange="renderTrForm()"><option value="">Seleccionar</option></select></div>
+    </div>
+    <div class="form-row c2">
+      <div class="fg"><label>Fecha</label><input type="date" id="tr-fecha"></div>
+      <div class="fg"><label>Notas</label><input type="text" id="tr-notas" placeholder="Opcional"></div>
+    </div>
+  </div>
+  <div id="tr-form-body"></div>
+  <div id="tr-actions" style="display:none;margin-top:4px;margin-bottom:20px">
+    <button class="btn btn-primary" onclick="saveTr()"><i class="ti ti-device-floppy"></i>Guardar transferencia</button>
+  </div>
+  <div class="sec-header" style="margin-top:8px"><span style="font-size:14px;font-weight:600">Transferencias registradas</span></div>
+  <div class="filter-bar">
+    <div class="form-row c2" style="margin-bottom:0">
+      <div class="fg"><label>Sede</label><select id="tr-fil-sede" onchange="renderTrList()"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Periodo</label><input type="month" id="tr-fil-mes" onchange="renderTrList()"></div>
+    </div>
+  </div>
+  <div id="tr-list"></div>
+</div>
+
 <!-- AUDITORIA -->
 <div class="section" id="s-auditoria">
   <div class="sec-header"><div class="sec-title"><i class="ti ti-clipboard-list"></i>Auditoria</div></div>
   <div class="card">
     <div class="fg" style="margin-bottom:10px"><label>Sede</label><select id="au-sede" onchange="loadAudForm()"><option value="">Seleccionar</option></select></div>
     <div class="form-row c2">
-      <div class="fg"><label>Periodo</label><input type="month" id="au-mes"></div>
+      <div class="fg"><label>Periodo</label><input type="month" id="au-mes" onchange="renderAudTable(null,null)"></div>
       <div class="fg"><label>Notas</label><input type="text" id="au-notas" placeholder="Observaciones..."></div>
     </div>
     <div class="fg" style="margin-top:8px"><label>Cargar inventario inicial</label>
@@ -198,6 +234,7 @@ input[type=file]{display:none}
     <input type="file" id="f-final" accept=".xlsx,.xls,.csv" onchange="importFinal(this)">
   </div>
   <div class="alert alert-info" style="font-size:11px"><i class="ti ti-calculator"></i><strong>Formula:</strong> Dif. = (Final + Sal.) - (Ini. + Entr.) | Negativo = Falta | Positivo = Excedente</div>
+  <div class="alert alert-info" id="aud-tr-info" style="display:none;font-size:11px"></div>
   <div id="aud-buscador" style="display:none;margin-bottom:10px">
     <div style="position:relative">
       <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:15px;pointer-events:none"></i>
@@ -286,7 +323,7 @@ input[type=file]{display:none}
 
 <script>
 var FB = "https://inventario-utensilios-9df49-default-rtdb.firebaseio.com";
-var DB = {sedes:[],utensilios:[],stockMin:{},inventarios:[],auditorias:[]};
+var DB = {sedes:[],utensilios:[],stockMin:{},inventarios:[],auditorias:[],transferencias:[]};
 var saving = false;
 
 function fbFetch(path, method, data) {
@@ -308,6 +345,7 @@ function loadAll() {
       DB.stockMin = d.stockMin || {};
       DB.inventarios = Array.isArray(d.inventarios) ? d.inventarios : [];
       DB.auditorias = Array.isArray(d.auditorias) ? d.auditorias : [];
+      DB.transferencias = Array.isArray(d.transferencias) ? d.transferencias : [];
       DB.utensilios.sort(function(a,b){ return (a.codigo||"").localeCompare(b.codigo||""); });
     }
     setSc("ok", "Firebase activo");
@@ -348,10 +386,10 @@ function initUI() {
 }
 
 function fillSedes() {
-  ["d-sede","iv-sede","au-sede","fil-sede","st-sede"].forEach(function(id) {
+  ["d-sede","iv-sede","au-sede","fil-sede","st-sede","tr-origen","tr-destino","tr-fil-sede"].forEach(function(id) {
     var el = document.getElementById(id); if (!el) return;
     var v = el.value;
-    var all = id==="d-sede" || id==="fil-sede";
+    var all = id==="d-sede" || id==="fil-sede" || id==="tr-fil-sede";
     el.innerHTML = all ? "<option value=''>Todas</option>" : "<option value=''>Seleccionar</option>";
     DB.sedes.forEach(function(s) {
       var o = document.createElement("option"); o.value = s.id; o.textContent = s.nombre; el.appendChild(o);
@@ -369,6 +407,7 @@ function tab(t) {
   if (t==="dashboard") renderDash();
   if (t==="config") renderCfg();
   if (t==="auditoria") loadAudSel();
+  if (t==="transferencias") renderTrList();
 }
 
 function openModal(id){ document.getElementById(id).classList.add("on"); document.body.style.overflow="hidden"; }
@@ -379,11 +418,20 @@ function triggerFile(id){ document.getElementById(id).click(); }
 // ===== UTENSILIOS =====
 function renderUten() {
   var tb = document.getElementById("tb-uten");
+  var q = (document.getElementById("uten-search")&&document.getElementById("uten-search").value||"").toLowerCase().trim();
+  var countEl = document.getElementById("uten-search-count");
   if (!DB.utensilios.length) {
     tb.innerHTML = "<tr><td colspan='5'><div class='empty'><i class='ti ti-tool'></i><p>Sin utensilios</p></div></td></tr>";
+    if (countEl) countEl.textContent = "";
     return;
   }
-  tb.innerHTML = DB.utensilios.map(function(u) {
+  var list = DB.utensilios.filter(function(u){ return !q || (u.codigo+" "+u.nombre).toLowerCase().indexOf(q)!==-1; });
+  if (countEl) countEl.textContent = q ? (list.length+" de "+DB.utensilios.length) : "";
+  if (!list.length) {
+    tb.innerHTML = "<tr><td colspan='5'><div class='empty'><i class='ti ti-search'></i><p>Sin resultados para \""+q+"\"</p></div></td></tr>";
+    return;
+  }
+  tb.innerHTML = list.map(function(u) {
     var val = u.valor ? "$"+Number(u.valor).toLocaleString("es-CO") : "-";
     return "<tr>" +
       "<td><span class='code-tag'>" + u.codigo + "</span></td>" +
@@ -503,14 +551,30 @@ function loadInvForm() {
 }
 
 function renderInvTable(pre) {
-  var h = "<div class='aud-wrap'><div style='display:grid;grid-template-columns:1.8fr 80px;gap:4px;padding:8px 10px;background:var(--bg3);font-size:9px;font-weight:700;color:var(--ink3);text-transform:uppercase;border-bottom:1px solid var(--border);min-width:260px'><div>Codigo / Utensilio</div><div>Cantidad</div></div>";
+  var h = "<div class='aud-wrap'><div style='display:grid;grid-template-columns:1.8fr 70px 90px;gap:4px;padding:8px 10px;background:var(--bg3);font-size:9px;font-weight:700;color:var(--ink3);text-transform:uppercase;border-bottom:1px solid var(--border);min-width:320px'><div>Codigo / Utensilio</div><div>Cantidad</div><div style='text-align:right'>Valor</div></div>";
   DB.utensilios.forEach(function(u) {
     var v = (pre && pre[u.codigo]!==undefined) ? pre[u.codigo] : 0;
-    h += "<div style='display:grid;grid-template-columns:1.8fr 80px;gap:4px;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;min-width:260px'>" +
+    h += "<div style='display:grid;grid-template-columns:1.8fr 70px 90px;gap:4px;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;min-width:320px'>" +
       "<div><span class='code-tag'>"+u.codigo+"</span> <span style='font-weight:500'>"+u.nombre+"</span></div>" +
-      "<div><input class='num-in' type='number' min='0' id='iv-q-"+u.id+"' value='"+v+"'></div></div>";
+      "<div><input class='num-in' type='number' min='0' id='iv-q-"+u.id+"' value='"+v+"' oninput='calcInvValor()'></div>" +
+      "<div id='iv-v-"+u.id+"' style='font-family:\"DM Mono\",monospace;font-size:11px;text-align:right;color:var(--ink2)'>-</div></div>";
   });
-  document.getElementById("inv-form-body").innerHTML = h + "</div>";
+  document.getElementById("inv-form-body").innerHTML = h + "</div><div id='inv-valor-box' style='margin-top:10px'></div>";
+  calcInvValor();
+}
+
+function calcInvValor() {
+  var box = document.getElementById("inv-valor-box"); if (!box) return;
+  var total = 0;
+  DB.utensilios.forEach(function(u) {
+    var qEl = document.getElementById("iv-q-"+u.id), q = qEl?parseInt(qEl.value)||0:0;
+    var val = q*(u.valor||0); total += val;
+    var vEl = document.getElementById("iv-v-"+u.id);
+    if (vEl) vEl.textContent = val>0 ? "$"+val.toLocaleString("es-CO") : "-";
+  });
+  box.innerHTML = "<div style='background:var(--accent-bg);border:1px solid #BFDBFE;border-radius:var(--radius);padding:14px;display:flex;align-items:center;justify-content:space-between'>" +
+    "<div style='font-weight:700;font-size:12px;color:var(--accent)'><i class='ti ti-cash' style='margin-right:4px'></i>Valor Total del Inventario</div>" +
+    "<div style='font-size:20px;font-weight:700;font-family:\"DM Mono\",monospace;color:var(--accent)'>$"+total.toLocaleString("es-CO")+"</div></div>";
 }
 
 function importInv(inp) {
@@ -531,12 +595,93 @@ function importInv(inp) {
 function saveInv() {
   var sid=document.getElementById("iv-sede").value, mes=document.getElementById("iv-mes").value, notas=document.getElementById("iv-notas").value;
   if (!sid||!mes) { toast("Selecciona sede y periodo","err"); return; }
-  var cant={};
-  DB.utensilios.forEach(function(u){ cant[u.id]=parseInt(document.getElementById("iv-q-"+u.id)&&document.getElementById("iv-q-"+u.id).value)||0; });
-  DB.inventarios.push({id:"inv-"+Date.now(),sedeId:sid,mes:mes,notas:notas,cantidades:cant,tipo:"manual",creadoEn:new Date().toISOString()});
+  var cant={}, valorTotal=0;
+  DB.utensilios.forEach(function(u){ var q=parseInt(document.getElementById("iv-q-"+u.id)&&document.getElementById("iv-q-"+u.id).value)||0; cant[u.id]=q; valorTotal+=q*(u.valor||0); });
+  DB.inventarios.push({id:"inv-"+Date.now(),sedeId:sid,mes:mes,notas:notas,cantidades:cant,valorTotal:valorTotal,tipo:"manual",creadoEn:new Date().toISOString()});
   saveAll().then(function(){ toast("Inventario inicial guardado","ok"); });
   document.getElementById("inv-form-body").innerHTML=""; document.getElementById("inv-actions").style.display="none"; document.getElementById("iv-sede").value="";
   loadAudSel();
+}
+
+// ===== TRANSFERENCIAS =====
+function renderTrForm() {
+  var so=document.getElementById("tr-origen").value, sd=document.getElementById("tr-destino").value;
+  var body=document.getElementById("tr-form-body"), actions=document.getElementById("tr-actions");
+  if (so && sd && so===sd) { toast("La sede origen y destino deben ser diferentes","err"); body.innerHTML=""; actions.style.display="none"; return; }
+  if (!so||!sd||!DB.utensilios.length) { body.innerHTML=""; actions.style.display="none"; return; }
+  actions.style.display="block";
+  var h="<div class='aud-wrap'><div style='display:grid;grid-template-columns:1.8fr 80px;gap:4px;padding:8px 10px;background:var(--bg3);font-size:9px;font-weight:700;color:var(--ink3);text-transform:uppercase;border-bottom:1px solid var(--border);min-width:260px'><div>Codigo / Utensilio</div><div>Cantidad</div></div>";
+  DB.utensilios.forEach(function(u) {
+    h += "<div style='display:grid;grid-template-columns:1.8fr 80px;gap:4px;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;min-width:260px'>" +
+      "<div><span class='code-tag'>"+u.codigo+"</span> <span style='font-weight:500'>"+u.nombre+"</span></div>" +
+      "<div><input class='num-in' type='number' min='0' id='tr-q-"+u.id+"' value='0'></div></div>";
+  });
+  body.innerHTML = h+"</div>";
+}
+
+function saveTr() {
+  var so=document.getElementById("tr-origen").value, sd=document.getElementById("tr-destino").value, fecha=document.getElementById("tr-fecha").value, notas=document.getElementById("tr-notas").value;
+  if (!so||!sd) { toast("Selecciona sede origen y destino","err"); return; }
+  if (so===sd) { toast("La sede origen y destino deben ser diferentes","err"); return; }
+  if (!fecha) { toast("Selecciona la fecha","err"); return; }
+  var mes=fecha.slice(0,7);
+  var cant={}, hayCant=false;
+  DB.utensilios.forEach(function(u){ var q=parseInt(document.getElementById("tr-q-"+u.id)&&document.getElementById("tr-q-"+u.id).value)||0; if(q>0){ cant[u.id]=q; hayCant=true; } });
+  if (!hayCant) { toast("Ingresa al menos una cantidad a transferir","err"); return; }
+  DB.transferencias.push({id:"tr-"+Date.now(),sedeOrigen:so,sedeDestino:sd,fecha:fecha,mes:mes,notas:notas,cantidades:cant,creadoEn:new Date().toISOString()});
+  saveAll().then(function(){ toast("Transferencia guardada","ok"); });
+  document.getElementById("tr-form-body").innerHTML=""; document.getElementById("tr-actions").style.display="none";
+  document.getElementById("tr-origen").value=""; document.getElementById("tr-destino").value=""; document.getElementById("tr-fecha").value=""; document.getElementById("tr-notas").value="";
+  renderTrList();
+}
+
+function fmtFechaCorta(f) {
+  if (!f) return "";
+  var p=f.split("-"); if(p.length<3) return f;
+  var meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  return p[2]+" "+meses[parseInt(p[1],10)-1]+" "+p[0];
+}
+
+function renderTrList() {
+  var el=document.getElementById("tr-list"); if (!el) return;
+  var fs=document.getElementById("tr-fil-sede")?document.getElementById("tr-fil-sede").value:"";
+  var fm=document.getElementById("tr-fil-mes")?document.getElementById("tr-fil-mes").value:"";
+  var items=(DB.transferencias||[]).filter(function(t){
+    if (fs && t.sedeOrigen!==fs && t.sedeDestino!==fs) return false;
+    if (fm && t.mes!==fm) return false;
+    return true;
+  }).sort(function(a,b){ return b.mes.localeCompare(a.mes) || (b.creadoEn||"").localeCompare(a.creadoEn||""); });
+  if (!items.length) { el.innerHTML="<div class='empty'><i class='ti ti-transfer'></i><br>No hay transferencias registradas</div>"; return; }
+  el.innerHTML = items.map(function(t){
+    var so=DB.sedes.find(function(s){return s.id===t.sedeOrigen;}), sd=DB.sedes.find(function(s){return s.id===t.sedeDestino;});
+    var uids=Object.keys(t.cantidades||{});
+    var rows=uids.map(function(uid){
+      var u=DB.utensilios.find(function(x){return x.id===uid;}); if(!u) return "";
+      return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td>"+u.nombre+"</td><td>"+t.cantidades[uid]+"</td></tr>";
+    }).join("");
+    return "<div class='hist-card'><div class='hist-header' onclick='toggleTr(\""+t.id+"\")'>" +
+      "<div style='flex:1;min-width:0'><div style='display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px'>" +
+        "<span class='badge b-blue'>Transferencia</span>" +
+        "<span style='font-weight:600;font-size:13px'>"+(so?so.nombre:"?")+" <i class='ti ti-arrow-right' style='font-size:11px;color:var(--ink3)'></i> "+(sd?sd.nombre:"?")+"</span></div>" +
+        "<div style='display:flex;align-items:center;gap:6px;flex-wrap:wrap'>" +
+          "<span class='chip'><i class='ti ti-calendar' style='font-size:10px'></i>"+fmtFechaCorta(t.fecha||(t.mes+"-01"))+"</span>" +
+          "<span class='chip'>"+uids.length+" utensilio(s)</span>" +
+          (t.notas?"<span style='font-size:11px;color:var(--ink3)'>"+t.notas+"</span>":"") +
+        "</div></div>" +
+      "<div style='display:flex;align-items:center;gap:5px;flex-shrink:0'>" +
+        "<button class='btn btn-xs btn-danger' onclick='event.stopPropagation();delTr(\""+t.id+"\")'><i class='ti ti-trash'></i></button>" +
+        "<i class='ti ti-chevron-down' style='font-size:13px;color:var(--ink3)'></i></div></div>" +
+      "<div class='hist-body' id='tb-tr-"+t.id+"'><table><thead><tr><th>Cod.</th><th>Utensilio</th><th>Cantidad</th></tr></thead><tbody>"+rows+"</tbody></table></div></div>";
+  }).join("");
+}
+
+function toggleTr(id) { var el=document.getElementById("tb-tr-"+id); if (el) el.classList.toggle("on"); }
+
+function delTr(id) {
+  if (!confirm("¿Eliminar esta transferencia? Dejara de sumarse/restarse en las auditorias del periodo.")) return;
+  DB.transferencias = DB.transferencias.filter(function(t){ return t.id!==id; });
+  saveAll().then(function(){ toast("Transferencia eliminada","ok"); });
+  renderTrList();
 }
 
 // ===== AUDITORIA =====
@@ -553,26 +698,45 @@ function loadAudForm(){ loadAudSel(); renderAudTable(null,null); }
 
 function renderAudTable(preIni, preFin) {
   var sid=document.getElementById("au-sede").value;
+  var mes=document.getElementById("au-mes").value;
   var body=document.getElementById("aud-form-body"), actions=document.getElementById("aud-actions");
   if (!sid||!DB.utensilios.length) { body.innerHTML=""; actions.style.display="none"; document.getElementById("aud-buscador").style.display="none"; return; }
   actions.style.display="block";
   document.getElementById("aud-buscador").style.display="block";
   document.getElementById("aud-search").value="";
-  var h="<div class='aud-wrap' id='aud-tabla-wrap'><div class='aud-grid head'><div>Codigo / Utensilio</div><div>Ini.</div><div>Entr.</div><div>Sal.</div><div>Final</div><div>Dif.</div><div>Estado</div></div>";
+  var trMes = mes ? (DB.transferencias||[]).filter(function(t){ return t.mes===mes && (t.sedeOrigen===sid||t.sedeDestino===sid); }) : [];
+  var trInfo = document.getElementById("aud-tr-info");
+  if (trInfo) {
+    if (trMes.length) {
+      var trEntCant=trMes.filter(function(t){return t.sedeDestino===sid;}).length;
+      var trSalCant=trMes.filter(function(t){return t.sedeOrigen===sid;}).length;
+      trInfo.style.display="flex";
+      trInfo.innerHTML="<i class='ti ti-transfer'></i>Se cargaron automaticamente "+trMes.length+" transferencia(s) del periodo "+mes+": "+trEntCant+" como entrada(s) y "+trSalCant+" como salida(s). Puedes ajustar los valores si es necesario.";
+    } else { trInfo.style.display="none"; }
+  }
+  var h="<div class='aud-wrap' id='aud-tabla-wrap'><div class='aud-grid head'><div>Codigo / Utensilio</div><div>Min.</div><div>Ini.</div><div>Entr.</div><div>Sal.</div><div>Final</div><div>Dif.</div><div>Valor</div><div>Estado</div></div>";
   DB.utensilios.forEach(function(u) {
     var iv=(preIni&&preIni[u.id]!==undefined)?preIni[u.id]:0;
     var fv=(preFin&&preFin[u.id]!==undefined)?preFin[u.id]:0;
+    var minStock=DB.stockMin[sid+"_"+u.id]||0;
+    var trEnt=0, trSal=0;
+    trMes.forEach(function(t){
+      if (t.sedeDestino===sid) trEnt += (t.cantidades&&t.cantidades[u.id])||0;
+      if (t.sedeOrigen===sid) trSal += (t.cantidades&&t.cantidades[u.id])||0;
+    });
     var sch=(u.codigo+" "+u.nombre).toLowerCase();
     h+="<div class='aud-grid' id='aud-row-"+u.id+"' data-search='"+sch+"'>" +
       "<div><span class='code-tag'>"+u.codigo+"</span><br><span style='font-size:11px'>"+u.nombre+"</span></div>" +
+      "<div style='text-align:center;font-family:\"DM Mono\",monospace;font-size:12px;color:var(--ink3)'>"+(minStock>0?minStock:"-")+"</div>" +
       "<div><input class='num-in' readonly id='ai-"+u.id+"' value='"+iv+"'></div>" +
-      "<div><input class='num-in' type='number' min='0' id='ae-"+u.id+"' value='0' oninput='calcRow(\""+u.id+"\")'></div>" +
-      "<div><input class='num-in' type='number' min='0' id='as-"+u.id+"' value='0' oninput='calcRow(\""+u.id+"\")'></div>" +
+      "<div><input class='num-in' type='number' min='0' id='ae-"+u.id+"' value='"+trEnt+"' oninput='calcRow(\""+u.id+"\")' "+(trEnt>0?"style='border-color:var(--accent);color:var(--accent);font-weight:600'":"")+" title='"+(trEnt>0?"Incluye "+trEnt+" por transferencia":"")+"'></div>" +
+      "<div><input class='num-in' type='number' min='0' id='as-"+u.id+"' value='"+trSal+"' oninput='calcRow(\""+u.id+"\")' "+(trSal>0?"style='border-color:var(--amber);color:var(--amber);font-weight:600'":"")+" title='"+(trSal>0?"Incluye "+trSal+" por transferencia":"")+"'></div>" +
       "<div><input class='num-in' type='number' min='0' id='af-"+u.id+"' value='"+fv+"' oninput='calcRow(\""+u.id+"\")'></div>" +
       "<div id='ad-"+u.id+"' class='diff-zero'>0</div>" +
+      "<div id='av-"+u.id+"' class='diff-zero' style='font-size:11px'>-</div>" +
       "<div id='ast-"+u.id+"' style='font-size:10px'>-</div></div>";
   });
-  body.innerHTML = h+"</div><div id='tasa-exactitud-box' style='margin-top:10px'></div>";
+  body.innerHTML = h+"</div><div id='tasa-exactitud-box' style='margin-top:10px'></div><div id='impacto-financiero-box'></div>";
   DB.utensilios.forEach(function(u){ calcRow(u.id); });
   actualizarTasaExactitud();
 }
@@ -590,6 +754,13 @@ function calcRow(uid) {
   var diff=(fin+sal)-(ini+ent);
   var dd=document.getElementById("ad-"+uid), ds=document.getElementById("ast-"+uid);
   if(dd){ dd.textContent=(diff>=0?"+":"")+diff; dd.className=diff>0?"diff-pos":diff<0?"diff-neg":"diff-zero"; }
+  var u=DB.utensilios.find(function(x){return x.id===uid;});
+  var av=document.getElementById("av-"+uid);
+  if(av){
+    var valDif=diff*(u&&u.valor||0);
+    av.textContent = valDif===0 ? "-" : (valDif>0?"+$":"-$")+Math.abs(valDif).toLocaleString("es-CO");
+    av.className = valDif>0?"diff-pos":valDif<0?"diff-neg":"diff-zero";
+  }
   var sid=document.getElementById("au-sede").value, min=DB.stockMin[sid+"_"+uid]||0;
   if(ds){
     if(diff<0) ds.innerHTML="<span class='badge b-out'>Falta "+Math.abs(diff)+"</span>";
@@ -598,6 +769,30 @@ function calcRow(uid) {
     else ds.innerHTML="<span class='badge b-ok'>OK</span>";
   }
   actualizarTasaExactitud();
+  calcImpactoFinanciero();
+}
+
+function calcImpactoFinanciero() {
+  var box=document.getElementById("impacto-financiero-box"); if(!box) return;
+  var faltante=0, excedente=0, hayDatos=false;
+  var g=function(id){ var el=document.getElementById(id); return el?parseInt(el.value)||0:0; };
+  DB.utensilios.forEach(function(u){
+    var ini=g("ai-"+u.id),ent=g("ae-"+u.id),sal=g("as-"+u.id),fin=g("af-"+u.id);
+    if(ini+ent+sal+fin===0) return;
+    hayDatos=true;
+    var diff=(fin+sal)-(ini+ent), val=diff*(u.valor||0);
+    if(val<0) faltante+=val; else if(val>0) excedente+=val;
+  });
+  if(!hayDatos){ box.innerHTML=""; return; }
+  var neto=faltante+excedente;
+  var netoColor=neto<0?"var(--red)":neto>0?"var(--accent)":"var(--ink2)";
+  box.innerHTML="<div style='background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:10px;box-shadow:var(--shadow)'>" +
+    "<div style='font-weight:700;font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px'><i class='ti ti-cash' style='margin-right:4px'></i>Impacto Financiero de la Auditoria</div>" +
+    "<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center'>" +
+      "<div><div style='font-size:16px;font-weight:700;font-family:\"DM Mono\",monospace;color:var(--red)'>"+(faltante<0?"-$":"$")+Math.abs(faltante).toLocaleString("es-CO")+"</div><div style='font-size:10px;color:var(--ink3);margin-top:2px'>Valor Faltante</div></div>" +
+      "<div><div style='font-size:16px;font-weight:700;font-family:\"DM Mono\",monospace;color:var(--accent)'>+$"+excedente.toLocaleString("es-CO")+"</div><div style='font-size:10px;color:var(--ink3);margin-top:2px'>Valor Excedente</div></div>" +
+      "<div><div style='font-size:16px;font-weight:700;font-family:\"DM Mono\",monospace;color:"+netoColor+"'>"+(neto<0?"-$":neto>0?"+$":"$")+Math.abs(neto).toLocaleString("es-CO")+"</div><div style='font-size:10px;color:var(--ink3);margin-top:2px'>Neto</div></div>" +
+    "</div></div>";
 }
 
 function filtrarAuditoria() {
@@ -678,10 +873,16 @@ function saveAud() {
   utenConVal.forEach(function(u){iiF[u.id]=ii[u.id];entF[u.id]=ent[u.id];salF[u.id]=sal[u.id];finF[u.id]=fin[u.id];resF[u.id]=res[u.id];});
   var exactos=utenConVal.filter(function(u){return (finF[u.id]+salF[u.id])===(iiF[u.id]+entF[u.id]);}).length;
   var tasa=utenConVal.length>0?Math.round(exactos/utenConVal.length*100):100;
-  DB.auditorias.unshift({id:"aud-"+Date.now(),sedeId:sid,mes:mes,notas:notas,invInicial:iiF,entradas:entF,salidas:salF,invFinal:finF,resultado:resF,utenIds:utenConVal.map(function(u){return u.id;}),exactos:exactos,tasaExactitud:tasa,creadoEn:new Date().toISOString()});
+  var valorFaltante=0, valorExcedente=0;
+  utenConVal.forEach(function(u){
+    var diff=(finF[u.id]+salF[u.id])-(iiF[u.id]+entF[u.id]), val=diff*(u.valor||0);
+    if(val<0) valorFaltante+=val; else if(val>0) valorExcedente+=val;
+  });
+  DB.auditorias.unshift({id:"aud-"+Date.now(),sedeId:sid,mes:mes,notas:notas,invInicial:iiF,entradas:entF,salidas:salF,invFinal:finF,resultado:resF,utenIds:utenConVal.map(function(u){return u.id;}),exactos:exactos,tasaExactitud:tasa,valorFaltante:valorFaltante,valorExcedente:valorExcedente,valorNeto:valorFaltante+valorExcedente,creadoEn:new Date().toISOString()});
   var parts=mes.split("-").map(Number), next=new Date(parts[0],parts[1],1);
   var ns=next.getFullYear()+"-"+String(next.getMonth()+1).padStart(2,"0");
-  DB.inventarios.push({id:"inv-auto-"+Date.now(),sedeId:sid,mes:ns,notas:"Auto desde auditoria "+mes,cantidades:resF,tipo:"auto",creadoEn:new Date().toISOString()});
+  var valorTotalAuto=0; utenConVal.forEach(function(u){valorTotalAuto+=(resF[u.id]||0)*(u.valor||0);});
+  DB.inventarios.push({id:"inv-auto-"+Date.now(),sedeId:sid,mes:ns,notas:"Auto desde auditoria "+mes,cantidades:resF,valorTotal:valorTotalAuto,tipo:"auto",creadoEn:new Date().toISOString()});
   saveAll().then(function(){ toast("Auditoria guardada | Exactitud: "+tasa+"% ("+exactos+"/"+utenConVal.length+")","ok"); });
   document.getElementById("au-sede").value=""; document.getElementById("aud-form-body").innerHTML="";
   document.getElementById("aud-actions").style.display="none"; document.getElementById("aud-buscador").style.display="none";
@@ -693,16 +894,26 @@ function renderDash() {
   var sid=document.getElementById("d-sede").value;
   var sedes=sid?DB.sedes.filter(function(s){return s.id===sid;}):DB.sedes;
   var al=[];
+  var valorInv=0, valorRiesgo=0;
   sedes.forEach(function(s){
     var last=DB.auditorias.filter(function(a){return a.sedeId===s.id;}).sort(function(a,b){return b.mes.localeCompare(a.mes);})[0];
     DB.utensilios.forEach(function(u){var min=DB.stockMin[s.id+"_"+u.id]||0;if(!min)return;var act=last?(last.invFinal[u.id]||0):0;if(act<min)al.push({sede:s.nombre,cod:u.codigo,nombre:u.nombre,actual:act,min:min});});
+    if(last){
+      DB.utensilios.forEach(function(u){valorInv+=(last.invFinal[u.id]||0)*(u.valor||0);});
+      valorRiesgo += last.valorFaltante!==undefined?last.valorFaltante:0;
+    } else {
+      var lastInv=DB.inventarios.filter(function(i){return i.sedeId===s.id;}).sort(function(a,b){return b.mes.localeCompare(a.mes);})[0];
+      if(lastInv) valorInv += lastInv.valorTotal!==undefined?lastInv.valorTotal:DB.utensilios.reduce(function(sum,u){return sum+(lastInv.cantidades&&lastInv.cantidades[u.id]||0)*(u.valor||0);},0);
+    }
   });
   var ta=DB.auditorias.filter(function(a){return !sid||a.sedeId===sid;}).length;
   document.getElementById("d-metrics").innerHTML=
     "<div class='metric'><div class='metric-val' style='color:var(--accent)'>"+sedes.length+"</div><div class='metric-label'>Sedes</div></div>"+
     "<div class='metric'><div class='metric-val'>"+DB.utensilios.length+"</div><div class='metric-label'>Utensilios</div></div>"+
     "<div class='metric'><div class='metric-val'>"+ta+"</div><div class='metric-label'>Auditorias</div></div>"+
-    "<div class='metric'><div class='metric-val' style='color:"+(al.length?"var(--red)":"var(--green)")+"'>"+al.length+"</div><div class='metric-label'>Alertas</div><div class='metric-sub' style='color:"+(al.length?"var(--red)":"var(--green)")+"'>"+(al.length?"Atencion":"OK")+"</div></div>";
+    "<div class='metric'><div class='metric-val' style='color:"+(al.length?"var(--red)":"var(--green)")+"'>"+al.length+"</div><div class='metric-label'>Alertas</div><div class='metric-sub' style='color:"+(al.length?"var(--red)":"var(--green)")+"'>"+(al.length?"Atencion":"OK")+"</div></div>"+
+    "<div class='metric'><div class='metric-val' style='color:var(--green);font-size:20px'>$"+valorInv.toLocaleString("es-CO")+"</div><div class='metric-label'>Valor Inventario</div></div>"+
+    "<div class='metric'><div class='metric-val' style='color:"+(valorRiesgo<0?"var(--red)":"var(--ink3)")+";font-size:20px'>"+(valorRiesgo<0?"-$"+Math.abs(valorRiesgo).toLocaleString("es-CO"):"$0")+"</div><div class='metric-label'>Faltante ult. auditoria</div></div>";
   var ds=document.getElementById("d-sedes");
   if(!sedes.length){ds.innerHTML="<div class='empty'><i class='ti ti-building-off'></i><p>Sin sedes</p></div>";return;}
   ds.innerHTML=sedes.map(function(s){
@@ -725,6 +936,22 @@ function getUtenForItem(item) {
   return DB.utensilios.filter(function(u){var i=item.invInicial&&item.invInicial[u.id]||0,e=item.entradas&&item.entradas[u.id]||0,s=item.salidas&&item.salidas[u.id]||0,f=item.invFinal&&item.invFinal[u.id]||0;return i+e+s+f>0;});
 }
 
+function calcValorItem(item, isAud) {
+  if (isAud) {
+    if (item.valorNeto!==undefined) return item.valorNeto;
+    var total=0;
+    DB.utensilios.forEach(function(u){
+      var ini=item.invInicial&&item.invInicial[u.id]||0, ent=item.entradas&&item.entradas[u.id]||0, sal=item.salidas&&item.salidas[u.id]||0, fin=item.invFinal&&item.invFinal[u.id]||0;
+      total += ((fin+sal)-(ini+ent))*(u.valor||0);
+    });
+    return total;
+  }
+  if (item.valorTotal!==undefined) return item.valorTotal;
+  var t=0;
+  DB.utensilios.forEach(function(u){ t += (item.cantidades&&item.cantidades[u.id]||0)*(u.valor||0); });
+  return t;
+}
+
 function renderHist() {
   var tipo=document.getElementById("fil-tipo").value, sid=document.getElementById("fil-sede").value;
   var mes=document.getElementById("fil-mes").value, q=document.getElementById("fil-uten").value.toLowerCase();
@@ -741,16 +968,21 @@ function renderHist() {
     var sede=DB.sedes.find(function(s){return s.id===item.sedeId;}), isAud=item._tipo==="auditoria";
     var uShow=getUtenForItem(item);
     var rows=uShow.map(function(u){
-      if(isAud){var ini=item.invInicial&&item.invInicial[u.id]||0,ent=item.entradas&&item.entradas[u.id]||0,sal=item.salidas&&item.salidas[u.id]||0,fin=item.invFinal&&item.invFinal[u.id]||0,diff=(fin+sal)-(ini+ent),dc=diff<0?"diff-neg":diff>0?"diff-pos":"diff-zero";var est=diff<0?"<span style='color:#DC2626;font-weight:600;font-size:10px'>Falta "+Math.abs(diff)+"</span>":diff>0?"<span style='color:#0D6EFD;font-size:10px'>Excedente</span>":"<span style='color:#059669;font-size:10px'>OK</span>";return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td>"+u.nombre+"</td><td>"+ini+"</td><td>"+ent+"</td><td>"+sal+"</td><td>"+fin+"</td><td class='"+dc+"'>"+(diff>=0?"+":"")+diff+"</td><td>"+est+"</td></tr>";}
-      var qty=item.cantidades&&item.cantidades[u.id]||0;return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td>"+u.nombre+"</td><td>"+qty+"</td><td colspan='5'><span class='badge "+(item.tipo==="auto"?"b-blue":"b-gray")+"'>"+(item.tipo==="auto"?"Auto":"Manual")+"</span></td></tr>";
+      if(isAud){var ini=item.invInicial&&item.invInicial[u.id]||0,ent=item.entradas&&item.entradas[u.id]||0,sal=item.salidas&&item.salidas[u.id]||0,fin=item.invFinal&&item.invFinal[u.id]||0,diff=(fin+sal)-(ini+ent),dc=diff<0?"diff-neg":diff>0?"diff-pos":"diff-zero";var est=diff<0?"<span style='color:#DC2626;font-weight:600;font-size:10px'>Falta "+Math.abs(diff)+"</span>":diff>0?"<span style='color:#0D6EFD;font-size:10px'>Excedente</span>":"<span style='color:#059669;font-size:10px'>OK</span>";var valDif=diff*(u.valor||0);var valStr=valDif===0?"-":(valDif>0?"+$":"-$")+Math.abs(valDif).toLocaleString("es-CO");var valColor=valDif>0?"#0D6EFD":valDif<0?"#DC2626":"#9CA3AF";var minSt=DB.stockMin[item.sedeId+"_"+u.id]||0;return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td>"+u.nombre+"</td><td style='color:var(--ink3)'>"+(minSt>0?minSt:"-")+"</td><td>"+ini+"</td><td>"+ent+"</td><td>"+sal+"</td><td>"+fin+"</td><td class='"+dc+"'>"+(diff>=0?"+":"")+diff+"</td><td style='font-family:monospace;font-size:11px;color:"+valColor+"'>"+valStr+"</td><td>"+est+"</td></tr>";}
+      var qty=item.cantidades&&item.cantidades[u.id]||0;var valQty=qty*(u.valor||0);return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td>"+u.nombre+"</td><td>"+qty+"</td><td style='font-family:monospace;font-size:11px'>"+(valQty>0?"$"+valQty.toLocaleString("es-CO"):"-")+"</td><td colspan='4'><span class='badge "+(item.tipo==="auto"?"b-blue":"b-gray")+"'>"+(item.tipo==="auto"?"Auto":"Manual")+"</span></td></tr>";
     }).join("");
     var tasaBadge=isAud&&item.tasaExactitud!==undefined?"<span style='font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:"+(item.tasaExactitud>=90?"var(--green-bg)":item.tasaExactitud>=75?"var(--amber-bg)":"var(--red-bg)")+";color:"+(item.tasaExactitud>=90?"var(--green)":item.tasaExactitud>=75?"var(--amber)":"var(--red)")+"'>Exactitud: "+item.tasaExactitud+"%</span>":"";
+    var valorItem=calcValorItem(item,isAud);
+    var valorChip=isAud?
+      "<span class='chip' style='color:"+(valorItem<0?"var(--red)":valorItem>0?"var(--accent)":"var(--ink2)")+"'><i class='ti ti-cash' style='font-size:10px'></i>"+(valorItem<0?"-$":valorItem>0?"+$":"$")+Math.abs(valorItem).toLocaleString("es-CO")+"</span>":
+      "<span class='chip'><i class='ti ti-cash' style='font-size:10px'></i>$"+valorItem.toLocaleString("es-CO")+"</span>";
     return "<div class='hist-card'><div class='hist-header' onclick='toggleHist(\""+item.id+"\")'>" +
       "<div style='flex:1;min-width:0'><div style='display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px'>" +
         "<span class='badge "+(isAud?"b-blue":"b-ok")+"'>"+(isAud?"Auditoria":"Inv.Inicial")+"</span>" +
         "<span style='font-weight:600;font-size:13px'>"+(sede?sede.nombre:"?")+"</span></div>" +
         "<div style='display:flex;align-items:center;gap:6px;flex-wrap:wrap'>" +
           "<span class='chip'><i class='ti ti-calendar' style='font-size:10px'></i>"+item.mes+"</span>" +
+          valorChip +
           (item.notas?"<span style='font-size:11px;color:var(--ink3)'>"+item.notas+"</span>":"") +
           tasaBadge+"</div></div>" +
       "<div style='display:flex;align-items:center;gap:5px;flex-shrink:0'>" +
@@ -759,7 +991,7 @@ function renderHist() {
         "<button class='btn btn-xs btn-danger' onclick='event.stopPropagation();delItem(\""+item._tipo+"\",\""+item.id+"\")'><i class='ti ti-trash'></i></button>" +
         "<i class='ti ti-chevron-down' style='font-size:13px;color:var(--ink3)'></i></div></div>" +
       "<div class='hist-body' id='hb-"+item.id+"'><table><thead><tr><th>Cod.</th><th>Utensilio</th>" +
-        (isAud?"<th>Ini.</th><th>Ent.</th><th>Sal.</th><th>Final</th><th>Dif.</th><th>Estado</th>":"<th>Cant.</th><th colspan='5'>Origen</th>") +
+        (isAud?"<th>Ini.</th><th>Ent.</th><th>Sal.</th><th>Final</th><th>Dif.</th><th>Valor</th><th>Estado</th>":"<th>Cant.</th><th>Valor</th><th colspan='4'>Origen</th>") +
         "</tr></thead><tbody>"+rows+"</tbody></table></div></div>";
   }).join("");
 }
@@ -811,24 +1043,36 @@ function updStock(sId,uId,v){DB.stockMin[sId+"_"+uId]=parseInt(v)||0;saveAll();}
 
 // ===== EXPORT =====
 function exportItemExcel(tipo,id){
+  if (typeof XLSX === "undefined") { toast("No se pudo cargar el generador de Excel. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
+  try {
   var item=tipo==="inventario"?DB.inventarios.find(function(i){return i.id===id;}):DB.auditorias.find(function(a){return a.id===id;});if(!item)return;
   var sede=DB.sedes.find(function(s){return s.id===item.sedeId;});
   var uShow=getUtenForItem(Object.assign({},item,{_tipo:tipo}));
-  var rows=[tipo==="inventario"?["Codigo","Utensilio","Cantidad"]:["Codigo","Utensilio","Ini.","Entradas","Salidas","Final","Diferencia","Estado"]];
+  var rows=[tipo==="inventario"?["Codigo","Utensilio","Cantidad","Valor Unit.","Valor Total"]:["Codigo","Utensilio","Stock Min.","Ini.","Entradas","Salidas","Final","Diferencia","Valor Unit.","Valor Diferencia","Estado"]];
+  var totalVal=0;
   uShow.forEach(function(u){
-    if(tipo==="inventario"){rows.push([u.codigo,u.nombre,item.cantidades&&item.cantidades[u.id]||0]);}
-    else{var i=item.invInicial&&item.invInicial[u.id]||0,e=item.entradas&&item.entradas[u.id]||0,s=item.salidas&&item.salidas[u.id]||0,f=item.invFinal&&item.invFinal[u.id]||0,diff=(f+s)-(i+e);rows.push([u.codigo,u.nombre,i,e,s,f,diff,diff<0?"Falta "+Math.abs(diff):diff>0?"Excedente":"OK"]);}
+    if(tipo==="inventario"){var q=item.cantidades&&item.cantidades[u.id]||0,vt=q*(u.valor||0);totalVal+=vt;rows.push([u.codigo,u.nombre,q,u.valor||0,vt]);}
+    else{var i=item.invInicial&&item.invInicial[u.id]||0,e=item.entradas&&item.entradas[u.id]||0,s=item.salidas&&item.salidas[u.id]||0,f=item.invFinal&&item.invFinal[u.id]||0,diff=(f+s)-(i+e),vd=diff*(u.valor||0),min=DB.stockMin[item.sedeId+"_"+u.id]||0;totalVal+=vd;rows.push([u.codigo,u.nombre,min,i,e,s,f,diff,u.valor||0,vd,diff<0?"Falta "+Math.abs(diff):diff>0?"Excedente":"OK"]);}
   });
+  rows.push([]);
+  rows.push(tipo==="inventario"?["","","","TOTAL",totalVal]:["","","","","","","","","TOTAL",totalVal,""]);
   var ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Reporte");
   XLSX.writeFile(wb,tipo+"_"+(sede?sede.nombre:"sede")+"_"+item.mes+".xlsx");
+  } catch(err) {
+    console.error("Error generando Excel:", err);
+    toast("No se pudo generar el Excel: "+(err&&err.message?err.message:"error desconocido"),"err");
+  }
 }
 
 function exportItemPDF(tipo,id){
+  if (!window.jspdf || !window.jspdf.jsPDF) { toast("No se pudo cargar el generador de PDF. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
+  try {
   var item=tipo==="inventario"?DB.inventarios.find(function(i){return i.id===id;}):DB.auditorias.find(function(a){return a.id===id;});if(!item)return;
   var sede=DB.sedes.find(function(s){return s.id===item.sedeId;});
   var uShow=getUtenForItem(Object.assign({},item,{_tipo:tipo}));
   var jsPDF=window.jspdf.jsPDF;
   var doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  if (typeof doc.autoTable !== "function") { toast("No se pudo cargar el modulo de tablas del PDF. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
   doc.setFillColor(17,24,39);doc.rect(0,0,210,32,"F");
   doc.setTextColor(255,255,255);doc.setFontSize(15);doc.setFont("helvetica","bold");
   doc.text("Cronch Artesanalmente Oblea",14,11);
@@ -842,18 +1086,24 @@ function exportItemPDF(tipo,id){
   doc.text("Sede: "+(sede?sede.nombre:"N/A"),14,41);doc.text("Periodo: "+item.mes,14,48);
   if(item.notas){doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text("Notas: "+item.notas,100,41);}
   var head,body2;
+  var fmtMoney=function(n){return (n<0?"-$":"$")+Math.abs(n).toLocaleString("es-CO");};
   if(tipo==="auditoria"){
-    head=[["#","Codigo","Utensilio","Ini.","Entradas","Salidas","Final","Diferencia","Estado"]];
-    body2=uShow.map(function(u,i){var ini=item.invInicial&&item.invInicial[u.id]||0,ent=item.entradas&&item.entradas[u.id]||0,sal=item.salidas&&item.salidas[u.id]||0,fin=item.invFinal&&item.invFinal[u.id]||0,diff=(fin+sal)-(ini+ent);return [i+1,u.codigo,u.nombre,ini,ent,sal,fin,(diff>=0?"+":"")+diff,diff<0?"FALTA "+Math.abs(diff):diff>0?"EXCEDENTE":"OK"];});
+    head=[["#","Codigo","Utensilio","Min.","Ini.","Entradas","Salidas","Final","Diferencia","Valor Unit.","Valor Dif.","Estado"]];
+    body2=uShow.map(function(u,i){var ini=item.invInicial&&item.invInicial[u.id]||0,ent=item.entradas&&item.entradas[u.id]||0,sal=item.salidas&&item.salidas[u.id]||0,fin=item.invFinal&&item.invFinal[u.id]||0,diff=(fin+sal)-(ini+ent),vd=diff*(u.valor||0),min=DB.stockMin[item.sedeId+"_"+u.id]||0;return [i+1,u.codigo,u.nombre,min||"-",ini,ent,sal,fin,(diff>=0?"+":"")+diff,fmtMoney(u.valor||0),fmtMoney(vd),diff<0?"FALTA "+Math.abs(diff):diff>0?"EXCEDENTE":"OK"];});
   }else{
-    head=[["#","Codigo","Utensilio","Cantidad","Origen"]];
-    body2=uShow.map(function(u,i){return [i+1,u.codigo,u.nombre,item.cantidades&&item.cantidades[u.id]||0,item.tipo==="auto"?"Auto":"Manual"];});
+    head=[["#","Codigo","Utensilio","Cantidad","Valor Unit.","Valor Total","Origen"]];
+    body2=uShow.map(function(u,i){var q=item.cantidades&&item.cantidades[u.id]||0;return [i+1,u.codigo,u.nombre,q,fmtMoney(u.valor||0),fmtMoney(q*(u.valor||0)),item.tipo==="auto"?"Auto":"Manual"];});
   }
   doc.autoTable({startY:56,head:head,body:body2,theme:"grid",headStyles:{fillColor:[13,110,253],textColor:255,fontStyle:"bold",fontSize:8},bodyStyles:{fontSize:8},alternateRowStyles:{fillColor:[249,250,251]},
-    didParseCell:function(d){if(d.column.index===8&&d.section==="body"){if((d.cell.raw||"").toString().startsWith("FALTA")){d.cell.styles.textColor=[220,38,38];d.cell.styles.fontStyle="bold";}else if(d.cell.raw==="OK"){d.cell.styles.textColor=[5,150,105];d.cell.styles.fontStyle="bold";}else if(d.cell.raw==="EXCEDENTE"){d.cell.styles.textColor=[13,110,253];}}}
+    didParseCell:function(d){
+      if(tipo==="auditoria"&&d.section==="body"){
+        if(d.column.index===11){if((d.cell.raw||"").toString().startsWith("FALTA")){d.cell.styles.textColor=[220,38,38];d.cell.styles.fontStyle="bold";}else if(d.cell.raw==="OK"){d.cell.styles.textColor=[5,150,105];d.cell.styles.fontStyle="bold";}else if(d.cell.raw==="EXCEDENTE"){d.cell.styles.textColor=[13,110,253];}}
+        if(d.column.index===10){var raw=(d.cell.raw||"").toString();if(raw.indexOf("-")===0){d.cell.styles.textColor=[220,38,38];}else if(raw.indexOf("+")===0){d.cell.styles.textColor=[13,110,253];}}
+      }
+    }
   });
   if(tipo==="auditoria"){
-    var tasa=item.tasaExactitud!==undefined?item.tasaExactitud:Math.round(body2.filter(function(r){return r[8]==="OK";}).length/body2.length*100);
+    var tasa=item.tasaExactitud!==undefined?item.tasaExactitud:Math.round(body2.filter(function(r){return r[11]==="OK";}).length/body2.length*100);
     var tasaColor=tasa>=90?[5,150,105]:tasa>=75?[217,119,6]:[220,38,38];
     var y=doc.lastAutoTable.finalY+8;
     doc.setFillColor.apply(doc,tasaColor);doc.roundedRect(14,y,182,22,4,4,"F");
@@ -866,13 +1116,27 @@ function exportItemPDF(tipo,id){
     y=y+32;
     doc.setFillColor(249,250,251);doc.rect(14,y,182,14,"F");doc.setDrawColor(229,231,235);doc.rect(14,y,182,14,"D");
     doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(17,24,39);doc.text("RESUMEN:",18,y+6);
-    doc.setTextColor(220,38,38);doc.text("Faltantes: "+body2.filter(function(r){return (r[8]||"").toString().startsWith("FALTA");}).length,55,y+6);
-    doc.setTextColor(13,110,253);doc.text("Excedentes: "+body2.filter(function(r){return r[8]==="EXCEDENTE";}).length,105,y+6);
-    doc.setTextColor(5,150,105);doc.text("Sin diferencia: "+body2.filter(function(r){return r[8]==="OK";}).length,155,y+6);
+    doc.setTextColor(220,38,38);doc.text("Faltantes: "+body2.filter(function(r){return (r[11]||"").toString().startsWith("FALTA");}).length,55,y+6);
+    doc.setTextColor(13,110,253);doc.text("Excedentes: "+body2.filter(function(r){return r[11]==="EXCEDENTE";}).length,105,y+6);
+    doc.setTextColor(5,150,105);doc.text("Sin diferencia: "+body2.filter(function(r){return r[11]==="OK";}).length,155,y+6);
     doc.setTextColor(17,24,39);doc.setFont("helvetica","normal");doc.text("Total auditados: "+body2.length,18,y+12);
     y=y+20;
+    var valorFalt=item.valorFaltante!==undefined?item.valorFaltante:0, valorExc=item.valorExcedente!==undefined?item.valorExcedente:0, valorNeto=valorFalt+valorExc;
+    var netoColor=valorNeto<0?[220,38,38]:valorNeto>0?[13,110,253]:[75,85,99];
+    doc.setFillColor(17,24,39);doc.roundedRect(14,y,182,20,4,4,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("IMPACTO FINANCIERO",18,y+7);
+    doc.setFontSize(7.5);doc.setFont("helvetica","normal");
+    doc.setTextColor(252,165,165);doc.text("Faltante: "+fmtMoney(valorFalt),18,y+14);
+    doc.setTextColor(191,219,254);doc.text("Excedente: +$"+Math.abs(valorExc).toLocaleString("es-CO"),80,y+14);
+    doc.setFont("helvetica","bold");doc.setTextColor(255,255,255);doc.text("Neto: "+fmtMoney(valorNeto),140,y+14);
+    y=y+28;
   } else {
-    var y=doc.lastAutoTable.finalY+14;
+    var y=doc.lastAutoTable.finalY+8;
+    var valorTot=item.valorTotal!==undefined?item.valorTotal:body2.reduce(function(s,r){return s+(parseInt((r[5]||"0").toString().replace(/[^0-9-]/g,""))||0);},0);
+    doc.setFillColor(17,24,39);doc.roundedRect(14,y,182,14,4,4,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("VALOR TOTAL DEL INVENTARIO",18,y+9);
+    doc.setFontSize(13);doc.text(fmtMoney(valorTot),196,y+9,{align:"right"});
+    y=y+22;
   }
   var pH=doc.internal.pageSize.height;
   var espacio=65, firmasY;
@@ -895,12 +1159,16 @@ function exportItemPDF(tipo,id){
   doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(156,163,175);
   doc.text("Cronch Artesanalmente Oblea  |  Sistema de Inventario de Utensilios",105,pH-5,{align:"center"});
   doc.save(tipo+"_"+(sede?sede.nombre.replace(/\s/g,"_"):"sede")+"_"+item.mes+".pdf");
+  } catch(err) {
+    console.error("Error generando PDF:", err);
+    toast("No se pudo generar el PDF: "+(err&&err.message?err.message:"error desconocido"),"err");
+  }
 }
 
 function exportAllHistory(){
-  var rows=[["Tipo","Sede","Periodo","Codigo","Utensilio","Ini.","Entradas","Salidas","Final","Dif.","Cantidad","Origen","Exactitud%"]];
-  DB.auditorias.forEach(function(a){var s=DB.sedes.find(function(x){return x.id===a.sedeId;});DB.utensilios.forEach(function(u){var i=a.invInicial&&a.invInicial[u.id]||0,e=a.entradas&&a.entradas[u.id]||0,sal=a.salidas&&a.salidas[u.id]||0,f=a.invFinal&&a.invFinal[u.id]||0;rows.push(["Auditoria",s?s.nombre:"",a.mes,u.codigo,u.nombre,i,e,sal,f,(f+sal)-(i+e),"","",a.tasaExactitud||""]);});});
-  DB.inventarios.forEach(function(i){var s=DB.sedes.find(function(x){return x.id===i.sedeId;});DB.utensilios.forEach(function(u){rows.push(["Inv.Inicial",s?s.nombre:"",i.mes,u.codigo,u.nombre,"","","","","",i.cantidades&&i.cantidades[u.id]||0,i.tipo,""]);});});
+  var rows=[["Tipo","Sede","Periodo","Codigo","Utensilio","Ini.","Entradas","Salidas","Final","Dif.","Valor Unit.","Valor Dif./Total","Cantidad","Origen","Exactitud%"]];
+  DB.auditorias.forEach(function(a){var s=DB.sedes.find(function(x){return x.id===a.sedeId;});DB.utensilios.forEach(function(u){var i=a.invInicial&&a.invInicial[u.id]||0,e=a.entradas&&a.entradas[u.id]||0,sal=a.salidas&&a.salidas[u.id]||0,f=a.invFinal&&a.invFinal[u.id]||0,dif=(f+sal)-(i+e);rows.push(["Auditoria",s?s.nombre:"",a.mes,u.codigo,u.nombre,i,e,sal,f,dif,u.valor||0,dif*(u.valor||0),"","",a.tasaExactitud||""]);});});
+  DB.inventarios.forEach(function(i){var s=DB.sedes.find(function(x){return x.id===i.sedeId;});DB.utensilios.forEach(function(u){var q=i.cantidades&&i.cantidades[u.id]||0;rows.push(["Inv.Inicial",s?s.nombre:"",i.mes,u.codigo,u.nombre,"","","","","",u.valor||0,q*(u.valor||0),q,i.tipo,""]);});});
   var ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Historial");
   XLSX.writeFile(wb,"historial_"+new Date().toISOString().split("T")[0]+".xlsx");
 }
@@ -913,16 +1181,26 @@ function toast(msg,type){var c=document.getElementById("toast-container"),d=docu
 window.addEventListener("load", function() {
   var libs = [
     "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"
+    "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+    "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"
   ];
+  var fallbacks = {
+    "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js": "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+    "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js": "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"
+  };
   var loaded = 0;
   function onLib(){ loaded++; if(loaded>=libs.length) loadAll(); }
-  libs.forEach(function(url){
+  function loadScript(url, isRetry){
     var s=document.createElement("script"); s.src=url;
-    s.onload=onLib; s.onerror=function(){console.warn("No cargo:",url);onLib();};
+    s.onload=onLib;
+    s.onerror=function(){
+      console.warn("No cargo:",url);
+      if (!isRetry && fallbacks[url]) { loadScript(fallbacks[url], true); }
+      else { onLib(); }
+    };
     document.head.appendChild(s);
-  });
+  }
+  libs.forEach(function(url){ loadScript(url, false); });
 });
 </script>
 </body>
