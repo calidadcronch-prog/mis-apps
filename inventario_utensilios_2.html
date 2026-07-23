@@ -127,6 +127,8 @@ input[type=file]{display:none}
   <button class="nav-btn" onclick="tab('inventario')" id="tnav-inventario"><i class="ti ti-box"></i>Inv.Inicial</button>
   <button class="nav-btn" onclick="tab('transferencias')" id="tnav-transferencias"><i class="ti ti-transfer"></i>Transferencias</button>
   <button class="nav-btn" onclick="tab('auditoria')" id="tnav-auditoria"><i class="ti ti-clipboard-list"></i>Auditoria</button>
+  <button class="nav-btn" onclick="tab('requisicion')" id="tnav-requisicion"><i class="ti ti-shopping-cart"></i>Requisicion</button>
+  <button class="nav-btn" onclick="tab('fisico')" id="tnav-fisico"><i class="ti ti-package"></i>Bodega</button>
   <button class="nav-btn" onclick="tab('historial')" id="tnav-historial"><i class="ti ti-history"></i>Historial</button>
   <button class="nav-btn" onclick="tab('config')" id="tnav-config"><i class="ti ti-settings"></i>Config</button>
 </div>
@@ -223,8 +225,9 @@ input[type=file]{display:none}
     <div class="fg" style="margin-bottom:10px"><label>Sede</label><select id="au-sede" onchange="loadAudForm()"><option value="">Seleccionar</option></select></div>
     <div class="form-row c2">
       <div class="fg"><label>Periodo</label><input type="month" id="au-mes" onchange="renderAudTable(null,null)"></div>
-      <div class="fg"><label>Notas</label><input type="text" id="au-notas" placeholder="Observaciones..."></div>
+      <div class="fg"><label>Fecha de la auditoria</label><input type="date" id="au-fecha"></div>
     </div>
+    <div class="fg"><label>Notas</label><input type="text" id="au-notas" placeholder="Observaciones..."></div>
     <div class="fg" style="margin-top:8px"><label>Cargar inventario inicial</label>
       <select id="au-inv-sel" onchange="loadInvIntoAud()"><option value="">Seleccionar registro</option></select>
     </div>
@@ -247,6 +250,29 @@ input[type=file]{display:none}
     <button class="btn btn-primary" onclick="saveAud()"><i class="ti ti-device-floppy"></i>Guardar auditoria</button>
     <p style="font-size:11px;color:var(--ink3);margin-top:6px"><i class="ti ti-info-circle" style="font-size:11px"></i> El resultado pasa como inv. inicial del proximo mes. Se omiten filas en cero.</p>
   </div>
+</div>
+
+<!-- REQUISICION -->
+<div class="section" id="s-requisicion">
+  <div class="sec-header"><div class="sec-title"><i class="ti ti-shopping-cart"></i>Requisicion de Utensilios</div></div>
+  <div class="alert alert-info" style="font-size:11px"><i class="ti ti-info-circle"></i>Compara el inventario final de una auditoria contra el stock minimo configurado por sede (pestaña Config). Solo se listan los utensilios cuyo inventario final quedo <strong>por debajo</strong> del minimo; si esta igual o por encima, se descarta.</div>
+  <div class="card">
+    <div class="form-row c2">
+      <div class="fg"><label>Sede</label><select id="rq-sede" onchange="loadRqAudSel()"><option value="">Seleccionar</option></select></div>
+      <div class="fg"><label>Auditoria</label><select id="rq-aud" onchange="renderRq()"><option value="">Seleccionar</option></select></div>
+    </div>
+  </div>
+  <div id="rq-resultado"></div>
+</div>
+
+<!-- INVENTARIO FISICO -->
+<div class="section" id="s-fisico">
+  <div class="sec-header"><div class="sec-title"><i class="ti ti-package"></i>Bodega Actual por Sede</div></div>
+  <div class="alert alert-info" style="font-size:11px"><i class="ti ti-info-circle"></i>Esto funciona como la bodega en tiempo real de cada sede: solo eliges la sede, el sistema toma automaticamente su ultima auditoria como base y le va sumando/restando cada transferencia registrada despues de esa fecha. No hay que elegir ninguna auditoria manualmente ni hacer nada mas: apenas registres una nueva auditoria o una nueva transferencia, esta vista se actualiza sola.</div>
+  <div class="card">
+    <div class="fg"><label>Sede</label><select id="fi-sede" onchange="renderFisico()"><option value="">Seleccionar</option></select></div>
+  </div>
+  <div id="fi-resultado"></div>
 </div>
 
 <!-- HISTORIAL -->
@@ -386,7 +412,7 @@ function initUI() {
 }
 
 function fillSedes() {
-  ["d-sede","iv-sede","au-sede","fil-sede","st-sede","tr-origen","tr-destino","tr-fil-sede"].forEach(function(id) {
+  ["d-sede","iv-sede","au-sede","fil-sede","st-sede","tr-origen","tr-destino","tr-fil-sede","rq-sede","fi-sede"].forEach(function(id) {
     var el = document.getElementById(id); if (!el) return;
     var v = el.value;
     var all = id==="d-sede" || id==="fil-sede" || id==="tr-fil-sede";
@@ -408,6 +434,8 @@ function tab(t) {
   if (t==="config") renderCfg();
   if (t==="auditoria") loadAudSel();
   if (t==="transferencias") renderTrList();
+  if (t==="requisicion") { document.getElementById("rq-resultado").innerHTML=""; }
+  if (t==="fisico") { document.getElementById("fi-resultado").innerHTML=""; }
 }
 
 function openModal(id){ document.getElementById(id).classList.add("on"); document.body.style.overflow="hidden"; }
@@ -694,7 +722,12 @@ function loadAudSel() {
   });
 }
 
-function loadAudForm(){ loadAudSel(); renderAudTable(null,null); }
+function loadAudForm(){
+  loadAudSel();
+  renderAudTable(null,null);
+  var fEl=document.getElementById("au-fecha");
+  if (fEl && !fEl.value) fEl.value=new Date().toISOString().slice(0,10);
+}
 
 function renderAudTable(preIni, preFin) {
   var sid=document.getElementById("au-sede").value;
@@ -861,8 +894,9 @@ function importFinal(inp) {
 }
 
 function saveAud() {
-  var sid=document.getElementById("au-sede").value, mes=document.getElementById("au-mes").value, notas=document.getElementById("au-notas").value;
+  var sid=document.getElementById("au-sede").value, mes=document.getElementById("au-mes").value, fecha=document.getElementById("au-fecha").value, notas=document.getElementById("au-notas").value;
   if(!sid||!mes){toast("Selecciona sede y periodo","err");return;}
+  if(!fecha){toast("Selecciona la fecha en que se realizo la auditoria","err");return;}
   var ii={},ent={},sal={},fin={},res={};
   DB.utensilios.forEach(function(u){
     var g=function(id){var el=document.getElementById(id);return el?parseInt(el.value)||0:0;};
@@ -878,13 +912,14 @@ function saveAud() {
     var diff=(finF[u.id]+salF[u.id])-(iiF[u.id]+entF[u.id]), val=diff*(u.valor||0);
     if(val<0) valorFaltante+=val; else if(val>0) valorExcedente+=val;
   });
-  DB.auditorias.unshift({id:"aud-"+Date.now(),sedeId:sid,mes:mes,notas:notas,invInicial:iiF,entradas:entF,salidas:salF,invFinal:finF,resultado:resF,utenIds:utenConVal.map(function(u){return u.id;}),exactos:exactos,tasaExactitud:tasa,valorFaltante:valorFaltante,valorExcedente:valorExcedente,valorNeto:valorFaltante+valorExcedente,creadoEn:new Date().toISOString()});
+  DB.auditorias.unshift({id:"aud-"+Date.now(),sedeId:sid,mes:mes,fecha:fecha,notas:notas,invInicial:iiF,entradas:entF,salidas:salF,invFinal:finF,resultado:resF,utenIds:utenConVal.map(function(u){return u.id;}),exactos:exactos,tasaExactitud:tasa,valorFaltante:valorFaltante,valorExcedente:valorExcedente,valorNeto:valorFaltante+valorExcedente,creadoEn:new Date().toISOString()});
   var parts=mes.split("-").map(Number), next=new Date(parts[0],parts[1],1);
   var ns=next.getFullYear()+"-"+String(next.getMonth()+1).padStart(2,"0");
   var valorTotalAuto=0; utenConVal.forEach(function(u){valorTotalAuto+=(resF[u.id]||0)*(u.valor||0);});
   DB.inventarios.push({id:"inv-auto-"+Date.now(),sedeId:sid,mes:ns,notas:"Auto desde auditoria "+mes,cantidades:resF,valorTotal:valorTotalAuto,tipo:"auto",creadoEn:new Date().toISOString()});
   saveAll().then(function(){ toast("Auditoria guardada | Exactitud: "+tasa+"% ("+exactos+"/"+utenConVal.length+")","ok"); });
   document.getElementById("au-sede").value=""; document.getElementById("aud-form-body").innerHTML="";
+  document.getElementById("au-fecha").value=""; document.getElementById("au-notas").value="";
   document.getElementById("aud-actions").style.display="none"; document.getElementById("aud-buscador").style.display="none";
   loadAudSel();
 }
@@ -927,6 +962,246 @@ function renderDash() {
   var da=document.getElementById("d-alertas");
   if(!al.length){da.innerHTML="<div class='empty' style='padding:20px'><i class='ti ti-circle-check' style='color:var(--green);opacity:1'></i><p style='color:var(--green);font-weight:500'>Todo en orden</p></div>";return;}
   da.innerHTML=al.map(function(a){return "<div style='display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)'><div><span class='code-tag' style='font-size:10px'>"+a.cod+"</span> <span style='font-size:12px;font-weight:500'>"+a.nombre+"</span><div style='font-size:11px;color:var(--ink3)'>"+a.sede+"</div></div><span class='badge "+(a.actual===0?"b-out":"b-low")+"'>"+a.actual+"/"+a.min+"</span></div>";}).join("");
+}
+
+// ===== REQUISICION =====
+function loadRqAudSel() {
+  var sid = document.getElementById("rq-sede").value;
+  var sel = document.getElementById("rq-aud");
+  sel.innerHTML = "<option value=''>Seleccionar</option>";
+  DB.auditorias.filter(function(a){ return a.sedeId===sid; })
+    .sort(function(a,b){ return b.mes.localeCompare(a.mes) || (b.creadoEn||"").localeCompare(a.creadoEn||""); })
+    .forEach(function(a){
+      var opt=document.createElement("option");
+      opt.value=a.id;
+      opt.textContent=a.mes+(a.tasaExactitud!==undefined?" (Exactitud "+a.tasaExactitud+"%)":"");
+      sel.appendChild(opt);
+    });
+  document.getElementById("rq-resultado").innerHTML = "";
+}
+
+function calcRqList(aud) {
+  var sid=aud.sedeId, list=[];
+  DB.utensilios.forEach(function(u){
+    var min=DB.stockMin[sid+"_"+u.id]||0;
+    if (!min) return;
+    var fin=aud.invFinal&&aud.invFinal[u.id]||0;
+    if (fin>=min) return;
+    var reponer=min-fin, costoUnit=u.valor||0;
+    list.push({u:u, stock:min, final:fin, reponer:reponer, costoUnit:costoUnit, costoTotal:reponer*costoUnit});
+  });
+  list.sort(function(a,b){ return b.costoTotal-a.costoTotal; });
+  return list;
+}
+
+function renderRq() {
+  var sid=document.getElementById("rq-sede").value, audId=document.getElementById("rq-aud").value;
+  var box=document.getElementById("rq-resultado");
+  if (!sid||!audId) { box.innerHTML=""; return; }
+  var aud=DB.auditorias.find(function(a){ return a.id===audId; });
+  if (!aud) { box.innerHTML=""; return; }
+  window.__rqCurrentList = calcRqList(aud);
+  window.__rqCurrentAud = aud;
+  box.innerHTML =
+    "<div style='margin:12px 0'><div style='position:relative'>" +
+      "<i class='ti ti-search' style='position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:15px;pointer-events:none'></i>" +
+      "<input type='text' id='rq-search' placeholder='Buscar utensilio por codigo o nombre...' oninput='renderRqTable()' style='padding:9px 10px 9px 34px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;width:100%;outline:none;background:var(--bg2);color:var(--ink)'>" +
+    "</div></div>" +
+    "<div class='btns' style='margin-bottom:10px'>" +
+      "<button class='btn btn-sm btn-success' onclick='exportRqExcel()'><i class='ti ti-file-spreadsheet'></i>Exportar Excel</button>" +
+      "<button class='btn btn-sm' style='background:var(--red-bg);color:var(--red);border-color:#FECACA' onclick='exportRqPDF()'><i class='ti ti-file-type-pdf'></i>Exportar PDF</button>" +
+    "</div>" +
+    "<div id='rq-tabla-wrap'></div>" +
+    "<div id='rq-total-box' style='margin-top:10px'></div>";
+  renderRqTable();
+}
+
+function renderRqTable() {
+  var list = window.__rqCurrentList||[];
+  var q=(document.getElementById("rq-search")&&document.getElementById("rq-search").value||"").toLowerCase().trim();
+  var wrap=document.getElementById("rq-tabla-wrap"), totalBox=document.getElementById("rq-total-box");
+  if (!wrap) return;
+  if (!list.length) {
+    wrap.innerHTML="<div class='empty'><i class='ti ti-circle-check' style='color:var(--green)'></i><p>Todos los utensilios de esta sede estan dentro o por encima del stock minimo.<br>No se requiere reposicion.</p></div>";
+    if (totalBox) totalBox.innerHTML="";
+    return;
+  }
+  var filtered = list.filter(function(r){ return !q || (r.u.codigo+" "+r.u.nombre).toLowerCase().indexOf(q)!==-1; });
+  if (!filtered.length) {
+    wrap.innerHTML="<div class='empty'><i class='ti ti-search'></i><p>Sin resultados para \""+q+"\"</p></div>";
+  } else {
+    wrap.innerHTML = "<div class='tbl-wrap'><table><thead><tr><th>Codigo</th><th>Nombre</th><th>Stock Min.</th><th>Inv. Final</th><th>A Reponer</th><th>Costo Unit.</th><th>Costo Total</th></tr></thead><tbody>" +
+      filtered.map(function(r){
+        return "<tr><td><span class='code-tag'>"+r.u.codigo+"</span></td>" +
+          "<td style='font-weight:500'>"+r.u.nombre+"</td>" +
+          "<td>"+r.stock+"</td><td>"+r.final+"</td>" +
+          "<td style='color:var(--red);font-weight:700'>"+r.reponer+"</td>" +
+          "<td style='font-family:monospace;font-size:12px'>$"+r.costoUnit.toLocaleString("es-CO")+"</td>" +
+          "<td style='font-family:monospace;font-size:12px;font-weight:600'>$"+r.costoTotal.toLocaleString("es-CO")+"</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  var total=list.reduce(function(s,r){ return s+r.costoTotal; },0);
+  if (totalBox) totalBox.innerHTML =
+    "<div style='background:var(--accent-bg);border:1px solid #BFDBFE;border-radius:var(--radius);padding:14px;display:flex;align-items:center;justify-content:space-between'>" +
+    "<div style='font-weight:700;font-size:12px;color:var(--accent)'><i class='ti ti-shopping-cart' style='margin-right:4px'></i>Costo Total de Reposicion ("+list.length+" utensilio(s))</div>" +
+    "<div style='font-size:20px;font-weight:700;font-family:\"DM Mono\",monospace;color:var(--accent)'>$"+total.toLocaleString("es-CO")+"</div></div>";
+}
+
+function exportRqExcel() {
+  if (typeof XLSX === "undefined") { toast("No se pudo cargar el generador de Excel. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
+  try {
+    var list=window.__rqCurrentList||[], aud=window.__rqCurrentAud;
+    if (!aud) { toast("Selecciona sede y auditoria","err"); return; }
+    if (!list.length) { toast("No hay utensilios por debajo del stock minimo en esta auditoria","err"); return; }
+    var sede=DB.sedes.find(function(s){ return s.id===aud.sedeId; });
+    var rows=[["Codigo","Nombre","Stock Minimo","Inventario Final","A Reponer","Costo Unitario","Costo Total"]];
+    var total=0;
+    list.forEach(function(r){ total+=r.costoTotal; rows.push([r.u.codigo,r.u.nombre,r.stock,r.final,r.reponer,r.costoUnit,r.costoTotal]); });
+    rows.push([]);
+    rows.push(["","","","","","TOTAL",total]);
+    var ws=XLSX.utils.aoa_to_sheet(rows), wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Requisicion");
+    XLSX.writeFile(wb,"requisicion_"+(sede?sede.nombre:"sede")+"_"+aud.mes+".xlsx");
+  } catch(err) {
+    console.error("Error generando Excel de requisicion:", err);
+    toast("No se pudo generar el Excel: "+(err&&err.message?err.message:"error desconocido"),"err");
+  }
+}
+
+function exportRqPDF() {
+  if (!window.jspdf || !window.jspdf.jsPDF) { toast("No se pudo cargar el generador de PDF. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
+  try {
+    var list=window.__rqCurrentList||[], aud=window.__rqCurrentAud;
+    if (!aud) { toast("Selecciona sede y auditoria","err"); return; }
+    if (!list.length) { toast("No hay utensilios por debajo del stock minimo en esta auditoria","err"); return; }
+    var sede=DB.sedes.find(function(s){ return s.id===aud.sedeId; });
+    var jsPDF=window.jspdf.jsPDF;
+    var doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    if (typeof doc.autoTable !== "function") { toast("No se pudo cargar el modulo de tablas del PDF. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
+    var fmtMoney=function(n){ return (n<0?"-$":"$")+Math.abs(n).toLocaleString("es-CO"); };
+    doc.setFillColor(17,24,39);doc.rect(0,0,210,32,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(15);doc.setFont("helvetica","bold");
+    doc.text("Cronch Artesanalmente Oblea",14,11);
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text("Sistema de Inventario de Utensilios  |  Gestion · Auditoria · Trazabilidad",14,18);
+    doc.setFillColor(220,38,38);doc.rect(0,24,210,8,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont("helvetica","bold");
+    doc.text("REQUISICION DE UTENSILIOS",14,29);
+    doc.text("Generado: "+new Date().toLocaleDateString("es-CO"),196,29,{align:"right"});
+    doc.setTextColor(17,24,39);doc.setFillColor(243,244,246);doc.rect(0,32,210,20,"F");
+    doc.setFontSize(11);doc.setFont("helvetica","bold");
+    doc.text("Sede: "+(sede?sede.nombre:"N/A"),14,41);
+    doc.text("Periodo auditado: "+aud.mes,14,48);
+    doc.setFont("helvetica","normal");doc.setFontSize(9);
+    doc.text("Utensilios por debajo del stock minimo configurado",100,41);
+    var head=[["#","Codigo","Nombre","Stock Min.","Inv. Final","A Reponer","Costo Unit.","Costo Total"]];
+    var total=0;
+    var body=list.map(function(r,i){ total+=r.costoTotal; return [i+1,r.u.codigo,r.u.nombre,r.stock,r.final,r.reponer,fmtMoney(r.costoUnit),fmtMoney(r.costoTotal)]; });
+    doc.autoTable({startY:56,head:head,body:body,theme:"grid",headStyles:{fillColor:[220,38,38],textColor:255,fontStyle:"bold",fontSize:8},bodyStyles:{fontSize:8},alternateRowStyles:{fillColor:[249,250,251]},
+      didParseCell:function(d){ if(d.section==="body"&&d.column.index===5){ d.cell.styles.textColor=[220,38,38]; d.cell.styles.fontStyle="bold"; } }
+    });
+    var y=doc.lastAutoTable.finalY+8;
+    if (y>260) { doc.addPage(); y=20; }
+    doc.setFillColor(17,24,39);doc.roundedRect(14,y,182,16,4,4,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont("helvetica","bold");
+    doc.text("COSTO TOTAL DE REPOSICION",18,y+10);
+    doc.setFontSize(14);doc.text(fmtMoney(total),196,y+10,{align:"right"});
+    doc.save("requisicion_"+(sede?sede.nombre.replace(/\s/g,"_"):"sede")+"_"+aud.mes+".pdf");
+  } catch(err) {
+    console.error("Error generando PDF de requisicion:", err);
+    toast("No se pudo generar el PDF: "+(err&&err.message?err.message:"error desconocido"),"err");
+  }
+}
+
+// ===== INVENTARIO FISICO =====
+function calcFisico(sid) {
+  var baseQty={}, baseMes=null, baseFecha=null, baseLabel="Sin inventario ni auditoria registrada para esta sede (todo en 0)";
+  var lastAud=DB.auditorias.filter(function(a){ return a.sedeId===sid; }).sort(function(a,b){
+    var af=a.fecha||(a.mes+"-01"), bf=b.fecha||(b.mes+"-01");
+    return bf.localeCompare(af) || (b.creadoEn||"").localeCompare(a.creadoEn||"");
+  })[0];
+  if (lastAud) {
+    DB.utensilios.forEach(function(u){ baseQty[u.id]=lastAud.invFinal&&lastAud.invFinal[u.id]||0; });
+    baseMes=lastAud.mes;
+    baseFecha=lastAud.fecha||null;
+    baseLabel="Auditoria de "+lastAud.mes+(lastAud.fecha?" (dia "+lastAud.fecha.split("-").reverse().join("/")+")":"")+(lastAud.tasaExactitud!==undefined?" - Exactitud "+lastAud.tasaExactitud+"%":"");
+  } else {
+    var lastInv=DB.inventarios.filter(function(i){ return i.sedeId===sid; }).sort(function(a,b){ return b.mes.localeCompare(a.mes); })[0];
+    if (lastInv) {
+      DB.utensilios.forEach(function(u){ baseQty[u.id]=lastInv.cantidades&&lastInv.cantidades[u.id]||0; });
+      baseMes=lastInv.mes;
+      baseLabel="Inventario Inicial de "+lastInv.mes;
+    } else {
+      DB.utensilios.forEach(function(u){ baseQty[u.id]=0; });
+    }
+  }
+  var trAfter=(DB.transferencias||[]).filter(function(t){
+    if (t.sedeOrigen!==sid && t.sedeDestino!==sid) return false;
+    if (baseFecha && t.fecha) return t.fecha>baseFecha;
+    return !baseMes || t.mes>baseMes;
+  });
+  var current={};
+  DB.utensilios.forEach(function(u){ current[u.id]=baseQty[u.id]; });
+  trAfter.forEach(function(t){
+    Object.keys(t.cantidades||{}).forEach(function(uid){
+      if (current[uid]===undefined) current[uid]=0;
+      if (t.sedeDestino===sid) current[uid]+=t.cantidades[uid]||0;
+      if (t.sedeOrigen===sid) current[uid]-=t.cantidades[uid]||0;
+    });
+  });
+  return { current:current, baseLabel:baseLabel, baseMes:baseMes, trCount:trAfter.length,
+    trEntradas:trAfter.filter(function(t){ return t.sedeDestino===sid; }).length,
+    trSalidas:trAfter.filter(function(t){ return t.sedeOrigen===sid; }).length };
+}
+
+function renderFisico() {
+  var sid=document.getElementById("fi-sede").value;
+  var box=document.getElementById("fi-resultado");
+  if (!sid) { box.innerHTML=""; return; }
+  var res=calcFisico(sid);
+  window.__fiCurrent=res; window.__fiSede=sid;
+  box.innerHTML =
+    "<div class='alert alert-info' style='font-size:11px'><i class='ti ti-stack-2'></i>Base: <strong>"+res.baseLabel+"</strong>"+
+      (res.trCount?" &nbsp;+&nbsp; "+res.trCount+" transferencia(s) posterior(es) aplicada(s) ("+res.trEntradas+" entrada, "+res.trSalidas+" salida)":"")+
+    "</div>" +
+    "<div style='margin:12px 0'><div style='position:relative'>" +
+      "<i class='ti ti-search' style='position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:15px;pointer-events:none'></i>" +
+      "<input type='text' id='fi-search' placeholder='Buscar utensilio por codigo o nombre...' oninput='renderFisicoTable()' style='padding:9px 10px 9px 34px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;width:100%;outline:none;background:var(--bg2);color:var(--ink)'>" +
+      "<span id='fi-search-count' style='position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--ink3)'></span>" +
+    "</div></div>" +
+    "<div id='fi-tabla-wrap'></div>" +
+    "<div id='fi-total-box' style='margin-top:10px'></div>";
+  renderFisicoTable();
+}
+
+function renderFisicoTable() {
+  var res=window.__fiCurrent; if (!res) return;
+  var q=(document.getElementById("fi-search")&&document.getElementById("fi-search").value||"").toLowerCase().trim();
+  var wrap=document.getElementById("fi-tabla-wrap"), totalBox=document.getElementById("fi-total-box"), countEl=document.getElementById("fi-search-count");
+  var list=DB.utensilios.filter(function(u){ return !q || (u.codigo+" "+u.nombre).toLowerCase().indexOf(q)!==-1; });
+  if (countEl) countEl.textContent=q?(list.length+" de "+DB.utensilios.length):"";
+  if (!DB.utensilios.length) {
+    wrap.innerHTML="<div class='empty'><i class='ti ti-tool'></i><p>No hay utensilios registrados</p></div>";
+    if (totalBox) totalBox.innerHTML=""; return;
+  }
+  if (!list.length) {
+    wrap.innerHTML="<div class='empty'><i class='ti ti-search'></i><p>Sin resultados para \""+q+"\"</p></div>";
+  } else {
+    wrap.innerHTML="<div class='tbl-wrap'><table><thead><tr><th>Codigo</th><th>Nombre</th><th>Cantidad Actual</th><th>Valor Unit.</th><th>Valor Total</th></tr></thead><tbody>"+
+      list.map(function(u){
+        var qty=res.current[u.id]||0, val=qty*(u.valor||0);
+        return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td>"+
+          "<td style='font-weight:500'>"+u.nombre+"</td>"+
+          "<td style='font-weight:700;color:"+(qty<0?"var(--red)":"var(--ink)")+"'>"+qty+"</td>"+
+          "<td style='font-family:monospace;font-size:12px'>"+(u.valor?"$"+Number(u.valor).toLocaleString("es-CO"):"-")+"</td>"+
+          "<td style='font-family:monospace;font-size:12px'>"+(val?"$"+val.toLocaleString("es-CO"):"-")+"</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  var totalCant=DB.utensilios.reduce(function(s,u){ return s+(res.current[u.id]||0); },0);
+  var totalVal=DB.utensilios.reduce(function(s,u){ return s+(res.current[u.id]||0)*(u.valor||0); },0);
+  if (totalBox) totalBox.innerHTML=
+    "<div style='background:var(--accent-bg);border:1px solid #BFDBFE;border-radius:var(--radius);padding:14px;display:flex;align-items:center;justify-content:space-between'>"+
+    "<div style='font-weight:700;font-size:12px;color:var(--accent)'><i class='ti ti-package' style='margin-right:4px'></i>Valor Total del Inventario Fisico ("+totalCant+" unidades)</div>"+
+    "<div style='font-size:20px;font-weight:700;font-family:\"DM Mono\",monospace;color:var(--accent)'>$"+totalVal.toLocaleString("es-CO")+"</div></div>";
 }
 
 // ===== HISTORIAL =====
