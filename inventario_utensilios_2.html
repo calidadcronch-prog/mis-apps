@@ -255,12 +255,9 @@ input[type=file]{display:none}
 <!-- REQUISICION -->
 <div class="section" id="s-requisicion">
   <div class="sec-header"><div class="sec-title"><i class="ti ti-shopping-cart"></i>Requisicion de Utensilios</div></div>
-  <div class="alert alert-info" style="font-size:11px"><i class="ti ti-info-circle"></i>Compara el inventario final de una auditoria contra el stock minimo configurado por sede (pestaña Config). Solo se listan los utensilios cuyo inventario final quedo <strong>por debajo</strong> del minimo; si esta igual o por encima, se descarta.</div>
+  <div class="alert alert-info" style="font-size:11px"><i class="ti ti-info-circle"></i>Compara el stock actual de la sede (misma base que la pestaña Bodega: ultima auditoria + transferencias posteriores) contra el stock minimo configurado (pestaña Config). Solo se listan los utensilios cuyo stock actual quedo <strong>por debajo</strong> del minimo; si esta igual o por encima, se descarta.</div>
   <div class="card">
-    <div class="form-row c2">
-      <div class="fg"><label>Sede</label><select id="rq-sede" onchange="loadRqAudSel()"><option value="">Seleccionar</option></select></div>
-      <div class="fg"><label>Auditoria</label><select id="rq-aud" onchange="renderRq()"><option value="">Seleccionar</option></select></div>
-    </div>
+    <div class="fg"><label>Sede</label><select id="rq-sede" onchange="renderRq()"><option value="">Seleccionar</option></select></div>
   </div>
   <div id="rq-resultado"></div>
 </div>
@@ -1032,46 +1029,34 @@ function renderDash() {
 }
 
 // ===== REQUISICION =====
-function loadRqAudSel() {
-  var sid = document.getElementById("rq-sede").value;
-  var sel = document.getElementById("rq-aud");
-  sel.innerHTML = "<option value=''>Seleccionar</option>";
-  DB.auditorias.filter(function(a){ return a.sedeId===sid; })
-    .sort(function(a,b){ return b.mes.localeCompare(a.mes) || (b.creadoEn||"").localeCompare(a.creadoEn||""); })
-    .forEach(function(a){
-      var opt=document.createElement("option");
-      opt.value=a.id;
-      opt.textContent=a.mes+(a.tasaExactitud!==undefined?" (Exactitud "+a.tasaExactitud+"%)":"");
-      sel.appendChild(opt);
-    });
-  document.getElementById("rq-resultado").innerHTML = "";
-}
-
-function calcRqList(aud) {
-  var sid=aud.sedeId, list=[];
+function calcRqList(sid) {
+  var fisico=calcFisico(sid), list=[];
   DB.utensilios.forEach(function(u){
     var min=DB.stockMin[sid+"_"+u.id]||0;
     if (!min) return;
-    var fin=aud.invFinal&&aud.invFinal[u.id]||0;
-    if (fin>=min) return;
-    var reponer=min-fin, costoUnit=u.valor||0;
-    list.push({u:u, stock:min, final:fin, reponer:reponer, costoUnit:costoUnit, costoTotal:reponer*costoUnit});
+    var actual=fisico.current[u.id]||0;
+    if (actual>=min) return;
+    var reponer=min-actual, costoUnit=u.valor||0;
+    list.push({u:u, stock:min, final:actual, reponer:reponer, costoUnit:costoUnit, costoTotal:reponer*costoUnit});
   });
   list.sort(function(a,b){ return b.costoTotal-a.costoTotal; });
-  return list;
+  return { list:list, baseLabel:fisico.baseLabel, trCount:fisico.trCount };
 }
 
 function renderRq() {
-  var sid=document.getElementById("rq-sede").value, audId=document.getElementById("rq-aud").value;
+  var sid=document.getElementById("rq-sede").value;
   var box=document.getElementById("rq-resultado");
-  if (!sid||!audId) { box.innerHTML=""; return; }
-  var aud=DB.auditorias.find(function(a){ return a.id===audId; });
-  if (!aud) { box.innerHTML=""; return; }
-  window.__rqCurrentList = calcRqList(aud);
-  window.__rqCurrentAud = aud;
+  if (!sid) { box.innerHTML=""; return; }
+  var res=calcRqList(sid);
+  window.__rqCurrentList = res.list;
+  window.__rqSede = sid;
+  window.__rqBaseLabel = res.baseLabel;
   window.__rqSelected = {};
   window.__rqCurrentList.forEach(function(r){ window.__rqSelected[r.u.id]=true; });
   box.innerHTML =
+    "<div class='alert alert-info' style='font-size:11px'><i class='ti ti-stack-2'></i>Base: <strong>"+res.baseLabel+"</strong>"+
+      (res.trCount?" &nbsp;+&nbsp; "+res.trCount+" transferencia(s) posterior(es) aplicada(s)":"")+
+    "</div>" +
     "<div style='margin:12px 0'><div style='position:relative'>" +
       "<i class='ti ti-search' style='position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:15px;pointer-events:none'></i>" +
       "<input type='text' id='rq-search' placeholder='Buscar utensilio por codigo o nombre...' oninput='renderRqTable()' style='padding:9px 10px 9px 34px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;width:100%;outline:none;background:var(--bg2);color:var(--ink)'>" +
@@ -1117,7 +1102,7 @@ function renderRqTable() {
       "<label style='display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3);margin-bottom:8px'>" +
         "<input type='checkbox' "+(allSelected?"checked":"")+" onchange='toggleRqSelectAll(this.checked)'> Seleccionar todos los visibles ("+filtered.length+")" +
       "</label>" +
-      "<div class='tbl-wrap'><table><thead><tr><th></th><th>Codigo</th><th>Nombre</th><th>Stock Min.</th><th>Inv. Final</th><th>A Reponer</th><th>Costo Unit.</th><th>Costo Total</th></tr></thead><tbody>" +
+      "<div class='tbl-wrap'><table><thead><tr><th></th><th>Codigo</th><th>Nombre</th><th>Stock Min.</th><th>Stock Actual</th><th>A Reponer</th><th>Costo Unit.</th><th>Costo Total</th></tr></thead><tbody>" +
       filtered.map(function(r){
         var sel = !!window.__rqSelected[r.u.id];
         return "<tr style='"+(sel?"":"opacity:.45")+"'>" +
@@ -1141,19 +1126,19 @@ function renderRqTable() {
 function exportRqExcel() {
   if (typeof XLSX === "undefined") { toast("No se pudo cargar el generador de Excel. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
   try {
-    var aud=window.__rqCurrentAud;
+    var sid=window.__rqSede;
     var list=(window.__rqCurrentList||[]).filter(function(r){ return window.__rqSelected && window.__rqSelected[r.u.id]; });
-    if (!aud) { toast("Selecciona sede y auditoria","err"); return; }
+    if (!sid) { toast("Selecciona una sede","err"); return; }
     if (!list.length) { toast("Selecciona al menos un utensilio para exportar","err"); return; }
-    var sede=DB.sedes.find(function(s){ return s.id===aud.sedeId; });
-    var rows=[["Codigo","Nombre","Stock Minimo","Inventario Final","A Reponer","Costo Unitario","Costo Total"]];
+    var sede=DB.sedes.find(function(s){ return s.id===sid; });
+    var rows=[["Codigo","Nombre","Stock Minimo","Stock Actual","A Reponer","Costo Unitario","Costo Total"]];
     var total=0;
     list.forEach(function(r){ total+=r.costoTotal; rows.push([r.u.codigo,r.u.nombre,r.stock,r.final,r.reponer,r.costoUnit,r.costoTotal]); });
     rows.push([]);
     rows.push(["","","","","","TOTAL",total]);
     var ws=XLSX.utils.aoa_to_sheet(rows), wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"Requisicion");
-    XLSX.writeFile(wb,"requisicion_"+(sede?sede.nombre:"sede")+"_"+aud.mes+".xlsx");
+    XLSX.writeFile(wb,"requisicion_"+(sede?sede.nombre:"sede")+"_"+new Date().toISOString().slice(0,10)+".xlsx");
   } catch(err) {
     console.error("Error generando Excel de requisicion:", err);
     toast("No se pudo generar el Excel: "+(err&&err.message?err.message:"error desconocido"),"err");
@@ -1163,11 +1148,11 @@ function exportRqExcel() {
 function exportRqPDF() {
   if (!window.jspdf || !window.jspdf.jsPDF) { toast("No se pudo cargar el generador de PDF. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
   try {
-    var aud=window.__rqCurrentAud;
+    var sid=window.__rqSede, baseLabel=window.__rqBaseLabel||"";
     var list=(window.__rqCurrentList||[]).filter(function(r){ return window.__rqSelected && window.__rqSelected[r.u.id]; });
-    if (!aud) { toast("Selecciona sede y auditoria","err"); return; }
+    if (!sid) { toast("Selecciona una sede","err"); return; }
     if (!list.length) { toast("Selecciona al menos un utensilio para exportar","err"); return; }
-    var sede=DB.sedes.find(function(s){ return s.id===aud.sedeId; });
+    var sede=DB.sedes.find(function(s){ return s.id===sid; });
     var jsPDF=window.jspdf.jsPDF;
     var doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
     if (typeof doc.autoTable !== "function") { toast("No se pudo cargar el modulo de tablas del PDF. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
@@ -1183,10 +1168,11 @@ function exportRqPDF() {
     doc.setTextColor(17,24,39);doc.setFillColor(243,244,246);doc.rect(0,32,210,20,"F");
     doc.setFontSize(11);doc.setFont("helvetica","bold");
     doc.text("Sede: "+(sede?sede.nombre:"N/A"),14,41);
-    doc.text("Periodo auditado: "+aud.mes,14,48);
-    doc.setFont("helvetica","normal");doc.setFontSize(9);
+    doc.setFont("helvetica","normal");doc.setFontSize(8);
+    doc.text("Base: "+baseLabel,14,48);
+    doc.setFontSize(9);
     doc.text("Utensilios por debajo del stock minimo configurado",100,41);
-    var head=[["#","Foto","Codigo","Nombre","Stock Min.","Inv. Final","A Reponer","Costo Unit.","Costo Total"]];
+    var head=[["#","Foto","Codigo","Nombre","Stock Min.","Stock Actual","A Reponer","Costo Unit.","Costo Total"]];
     var total=0;
     var body=list.map(function(r,i){ total+=r.costoTotal; return [i+1,"",r.u.codigo,r.u.nombre,r.stock,r.final,r.reponer,fmtMoney(r.costoUnit),fmtMoney(r.costoTotal)]; });
     doc.autoTable({startY:56,head:head,body:body,theme:"grid",headStyles:{fillColor:[220,38,38],textColor:255,fontStyle:"bold",fontSize:8},bodyStyles:{fontSize:8,minCellHeight:16},alternateRowStyles:{fillColor:[249,250,251]},
@@ -1210,7 +1196,7 @@ function exportRqPDF() {
     doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont("helvetica","bold");
     doc.text("COSTO TOTAL DE REPOSICION",18,y+10);
     doc.setFontSize(14);doc.text(fmtMoney(total),196,y+10,{align:"right"});
-    doc.save("requisicion_"+(sede?sede.nombre.replace(/\s/g,"_"):"sede")+"_"+aud.mes+".pdf");
+    doc.save("requisicion_"+(sede?sede.nombre.replace(/\s/g,"_"):"sede")+"_"+new Date().toISOString().slice(0,10)+".pdf");
   } catch(err) {
     console.error("Error generando PDF de requisicion:", err);
     toast("No se pudo generar el PDF: "+(err&&err.message?err.message:"error desconocido"),"err");
