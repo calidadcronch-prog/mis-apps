@@ -204,6 +204,11 @@ input[type=file]{display:none}
       <div class="fg"><label>Notas</label><input type="text" id="tr-notas" placeholder="Opcional"></div>
     </div>
   </div>
+  <div id="tr-buscador" style="display:none;margin-bottom:10px"><div style="position:relative">
+    <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:15px;pointer-events:none"></i>
+    <input type="text" id="tr-item-search" placeholder="Buscar utensilio por codigo o nombre..." oninput="filtrarTr()" style="padding:9px 10px 9px 34px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;width:100%;outline:none;background:var(--bg2);color:var(--ink)">
+    <span id="tr-item-search-count" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--ink3)"></span>
+  </div></div>
   <div id="tr-form-body"></div>
   <div id="tr-actions" style="display:none;margin-top:4px;margin-bottom:20px">
     <button class="btn btn-primary" onclick="saveTr()"><i class="ti ti-device-floppy"></i>Guardar transferencia</button>
@@ -303,6 +308,11 @@ input[type=file]{display:none}
   <div style="font-size:14px;font-weight:600;margin-bottom:10px">Stock minimo por sede</div>
   <div class="card">
     <div class="fg" style="margin-bottom:12px"><label>Sede</label><select id="st-sede" onchange="renderStockTable()"><option value="">Seleccionar</option></select></div>
+    <div style="margin-bottom:12px"><div style="position:relative">
+      <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:15px;pointer-events:none"></i>
+      <input type="text" id="st-search" placeholder="Buscar utensilio por codigo o nombre..." oninput="renderStockTable()" style="padding:9px 10px 9px 34px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;width:100%;outline:none;background:var(--bg2);color:var(--ink)">
+      <span id="st-search-count" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--ink3)"></span>
+    </div></div>
     <div id="st-body"></div>
   </div>
   <div style="font-size:14px;font-weight:600;margin-bottom:10px">Backup</div>
@@ -698,17 +708,34 @@ function saveInv() {
 // ===== TRANSFERENCIAS =====
 function renderTrForm() {
   var so=document.getElementById("tr-origen").value, sd=document.getElementById("tr-destino").value;
-  var body=document.getElementById("tr-form-body"), actions=document.getElementById("tr-actions");
-  if (so && sd && so===sd) { toast("La sede origen y destino deben ser diferentes","err"); body.innerHTML=""; actions.style.display="none"; return; }
-  if (!so||!sd||!DB.utensilios.length) { body.innerHTML=""; actions.style.display="none"; return; }
+  var body=document.getElementById("tr-form-body"), actions=document.getElementById("tr-actions"), buscador=document.getElementById("tr-buscador");
+  if (so && sd && so===sd) { toast("La sede origen y destino deben ser diferentes","err"); body.innerHTML=""; actions.style.display="none"; buscador.style.display="none"; return; }
+  if (!so||!sd||!DB.utensilios.length) { body.innerHTML=""; actions.style.display="none"; buscador.style.display="none"; return; }
   actions.style.display="block";
+  buscador.style.display="block";
+  document.getElementById("tr-item-search").value="";
+  document.getElementById("tr-item-search-count").textContent="";
   var h="<div class='aud-wrap'><div style='display:grid;grid-template-columns:1.8fr 80px;gap:4px;padding:8px 10px;background:var(--bg3);font-size:9px;font-weight:700;color:var(--ink3);text-transform:uppercase;border-bottom:1px solid var(--border);min-width:260px'><div>Codigo / Utensilio</div><div>Cantidad</div></div>";
   DB.utensilios.forEach(function(u) {
-    h += "<div style='display:grid;grid-template-columns:1.8fr 80px;gap:4px;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;min-width:260px'>" +
+    var sch=(u.codigo+" "+u.nombre).toLowerCase();
+    h += "<div class='tr-row' data-search='"+sch+"' style='display:grid;grid-template-columns:1.8fr 80px;gap:4px;padding:7px 10px;border-bottom:1px solid var(--border);align-items:center;min-width:260px'>" +
       "<div><span class='code-tag'>"+u.codigo+"</span> <span style='font-weight:500'>"+u.nombre+"</span></div>" +
       "<div><input class='num-in' type='number' min='0' id='tr-q-"+u.id+"' value='0'></div></div>";
   });
   body.innerHTML = h+"</div>";
+}
+
+function filtrarTr() {
+  var q=(document.getElementById("tr-item-search").value||"").toLowerCase().trim();
+  var filas=document.querySelectorAll(".tr-row[data-search]");
+  var visibles=0;
+  filas.forEach(function(fila){
+    var match=!q||fila.dataset.search.includes(q);
+    fila.style.display=match?"":"none";
+    if(match)visibles++;
+  });
+  var countEl=document.getElementById("tr-item-search-count");
+  if(countEl) countEl.textContent=q?visibles+" resultado"+(visibles!==1?"s":""):"";
 }
 
 function saveTr() {
@@ -1400,10 +1427,15 @@ function delSede(id){
 
 function renderStockTable(){
   var sid=document.getElementById("st-sede").value, body=document.getElementById("st-body");
-  if(!sid){body.innerHTML="<p style='font-size:13px;color:var(--ink3)'>Selecciona una sede</p>";return;}
-  if(!DB.utensilios.length){body.innerHTML="<p style='font-size:13px;color:var(--ink3)'>Sin utensilios</p>";return;}
+  var countEl=document.getElementById("st-search-count");
+  if(!sid){body.innerHTML="<p style='font-size:13px;color:var(--ink3)'>Selecciona una sede</p>";if(countEl)countEl.textContent="";return;}
+  if(!DB.utensilios.length){body.innerHTML="<p style='font-size:13px;color:var(--ink3)'>Sin utensilios</p>";if(countEl)countEl.textContent="";return;}
+  var q=(document.getElementById("st-search")&&document.getElementById("st-search").value||"").toLowerCase().trim();
+  var list=DB.utensilios.filter(function(u){ return !q || (u.codigo+" "+u.nombre).toLowerCase().indexOf(q)!==-1; });
+  if(countEl) countEl.textContent = q ? (list.length+" de "+DB.utensilios.length) : "";
+  if(!list.length){ body.innerHTML="<div class='empty'><i class='ti ti-search'></i><p>Sin resultados para \""+q+"\"</p></div>"; return; }
   body.innerHTML="<div class='tbl-wrap'><table><thead><tr><th>Cod.</th><th>Utensilio</th><th>Min.</th></tr></thead><tbody>"+
-    DB.utensilios.map(function(u){var k=sid+"_"+u.id,v=DB.stockMin[k]||0;return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td style='font-weight:500'>"+u.nombre+"</td><td><input class='num-in' type='number' min='0' value='"+v+"' style='width:62px' onchange='updStock(\""+sid+"\",\""+u.id+"\",this.value)'></td></tr>";}).join("")+
+    list.map(function(u){var k=sid+"_"+u.id,v=DB.stockMin[k]||0;return "<tr><td><span class='code-tag'>"+u.codigo+"</span></td><td style='font-weight:500'>"+u.nombre+"</td><td><input class='num-in' type='number' min='0' value='"+v+"' style='width:62px' onchange='updStock(\""+sid+"\",\""+u.id+"\",this.value)'></td></tr>";}).join("")+
     "</tbody></table></div>";
 }
 
