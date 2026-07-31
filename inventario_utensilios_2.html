@@ -184,6 +184,7 @@ input[type=file]{display:none}
     </div>
     <input type="file" id="f-inv" accept=".xlsx,.xls,.csv" onchange="importInv(this)">
   </div>
+  <div id="inv-tr-info" style="display:none;margin-bottom:10px"></div>
   <div id="inv-form-body"></div>
   <div id="inv-actions" style="display:none;margin-top:4px">
     <button class="btn btn-primary" onclick="saveInv()"><i class="ti ti-device-floppy"></i>Guardar inventario inicial</button>
@@ -260,9 +261,18 @@ input[type=file]{display:none}
 <!-- REQUISICION -->
 <div class="section" id="s-requisicion">
   <div class="sec-header"><div class="sec-title"><i class="ti ti-shopping-cart"></i>Requisicion de Utensilios</div></div>
-  <div class="alert alert-info" style="font-size:11px"><i class="ti ti-info-circle"></i>Compara el stock actual de la sede (misma base que la pestaña Bodega: ultima auditoria + transferencias posteriores) contra el stock minimo configurado (pestaña Config). Solo se listan los utensilios cuyo stock actual quedo <strong>por debajo</strong> del minimo; si esta igual o por encima, se descarta.</div>
-  <div class="card">
+  <div class="alert alert-info" style="font-size:11px"><i class="ti ti-info-circle"></i>Compara el stock actual de cada sede (misma base que la pestaña Bodega: ultima auditoria + transferencias posteriores) contra el stock minimo configurado (pestaña Config). Solo se listan los utensilios cuyo stock actual quedo <strong>por debajo</strong> del minimo; si esta igual o por encima, se descarta.</div>
+  <div class="btns" style="margin-bottom:12px">
+    <button class="btn btn-sm btn-primary" id="rq-mode-sede" onclick="setRqMode('sede')"><i class="ti ti-building-store"></i>Por Sede</button>
+    <button class="btn btn-sm" id="rq-mode-general" onclick="setRqMode('general')"><i class="ti ti-stack-2"></i>General (varias sedes)</button>
+  </div>
+  <div class="card" id="rq-sede-picker">
     <div class="fg"><label>Sede</label><select id="rq-sede" onchange="renderRq()"><option value="">Seleccionar</option></select></div>
+  </div>
+  <div class="card" id="rq-general-picker" style="display:none">
+    <label style="font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px">Sedes a incluir</label>
+    <div id="rq-general-sedes-list"></div>
+    <button class="btn btn-sm btn-primary" style="margin-top:12px" onclick="renderRqGeneral()"><i class="ti ti-refresh"></i>Generar requisicion consolidada</button>
   </div>
   <div id="rq-resultado"></div>
 </div>
@@ -449,11 +459,11 @@ function tab(t) {
   document.getElementById("tnav-"+t).classList.add("active");
   if (t==="historial") renderHist();
   if (t==="dashboard") renderDash();
-  if (t==="config") renderCfg();
+  if (t==="config") { renderCfg(); if (document.getElementById("st-sede").value) renderStockTable(); }
   if (t==="auditoria") loadAudSel();
-  if (t==="transferencias") renderTrList();
-  if (t==="requisicion") { document.getElementById("rq-resultado").innerHTML=""; }
-  if (t==="fisico") { document.getElementById("fi-resultado").innerHTML=""; }
+  if (t==="transferencias") { renderTrList(); applyTrDefaults(); }
+  if (t==="requisicion") { setRqMode(window.__rqMode||"sede"); }
+  if (t==="fisico") { if (document.getElementById("fi-sede").value) renderFisico(); }
 }
 
 function openModal(id){ document.getElementById(id).classList.add("on"); document.body.style.overflow="hidden"; }
@@ -647,9 +657,19 @@ function loadInvForm() {
   var sid = document.getElementById("iv-sede").value;
   var body = document.getElementById("inv-form-body");
   var actions = document.getElementById("inv-actions");
-  if (!sid) { body.innerHTML=""; actions.style.display="none"; return; }
-  if (!DB.utensilios.length) { body.innerHTML="<div class='alert alert-warn'><i class='ti ti-alert-triangle'></i>Sin utensilios.</div>"; actions.style.display="none"; return; }
-  renderInvTable(null); actions.style.display="block";
+  var trInfo = document.getElementById("inv-tr-info");
+  if (!sid) { body.innerHTML=""; actions.style.display="none"; if(trInfo) trInfo.style.display="none"; return; }
+  if (!DB.utensilios.length) { body.innerHTML="<div class='alert alert-warn'><i class='ti ti-alert-triangle'></i>Sin utensilios.</div>"; actions.style.display="none"; if(trInfo) trInfo.style.display="none"; return; }
+  var fisico = calcFisico(sid);
+  var pre = {};
+  DB.utensilios.forEach(function(u){ pre[u.codigo] = fisico.current[u.id]||0; });
+  if (trInfo) {
+    trInfo.className = "alert alert-info";
+    trInfo.style.display = "block";
+    trInfo.style.fontSize = "11px";
+    trInfo.innerHTML = "<i class='ti ti-stack-2'></i> Precargado desde: <strong>"+fisico.baseLabel+"</strong>"+(fisico.trCount?" + "+fisico.trCount+" transferencia(s) posterior(es) aplicada(s)":"")+". Puedes ajustar las cantidades si es necesario.";
+  }
+  renderInvTable(pre); actions.style.display="block";
 }
 
 function renderInvTable(pre) {
@@ -738,6 +758,18 @@ function filtrarTr() {
   if(countEl) countEl.textContent=q?visibles+" resultado"+(visibles!==1?"s":""):"";
 }
 
+function applyTrDefaults() {
+  var fEl=document.getElementById("tr-fecha");
+  if (fEl && !fEl.value) fEl.value=new Date().toISOString().slice(0,10);
+  var oEl=document.getElementById("tr-origen");
+  var wasEmpty = oEl && !oEl.value;
+  if (oEl && wasEmpty) {
+    var bodega=DB.sedes.find(function(s){ return (s.nombre||"").trim().toLowerCase()==="bodega almacen principal"; });
+    if (bodega) oEl.value=bodega.id;
+  }
+  if (wasEmpty && oEl.value) renderTrForm();
+}
+
 function saveTr() {
   var so=document.getElementById("tr-origen").value, sd=document.getElementById("tr-destino").value, fecha=document.getElementById("tr-fecha").value, notas=document.getElementById("tr-notas").value;
   if (!so||!sd) { toast("Selecciona sede origen y destino","err"); return; }
@@ -751,6 +783,7 @@ function saveTr() {
   saveAll().then(function(){ toast("Transferencia guardada","ok"); });
   document.getElementById("tr-form-body").innerHTML=""; document.getElementById("tr-actions").style.display="none";
   document.getElementById("tr-origen").value=""; document.getElementById("tr-destino").value=""; document.getElementById("tr-fecha").value=""; document.getElementById("tr-notas").value="";
+  applyTrDefaults();
   renderTrList();
 }
 
@@ -849,8 +882,11 @@ function renderAudTable(preIni, preFin) {
       if (t.sedeOrigen===sid) trSal += (t.cantidades&&t.cantidades[u.id])||0;
     });
     var sch=(u.codigo+" "+u.nombre).toLowerCase();
+    var thumb=u.imagen
+      ? "<img src='"+u.imagen+"' style='width:26px;height:26px;border-radius:6px;object-fit:cover;flex-shrink:0'>"
+      : "<div style='width:26px;height:26px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;flex-shrink:0'><i class='ti ti-photo' style='color:var(--ink3);font-size:13px'></i></div>";
     h+="<div class='aud-grid' id='aud-row-"+u.id+"' data-search='"+sch+"'>" +
-      "<div><span class='code-tag'>"+u.codigo+"</span><br><span style='font-size:11px'>"+u.nombre+"</span></div>" +
+      "<div style='display:flex;align-items:center;gap:6px'>"+thumb+"<div><span class='code-tag'>"+u.codigo+"</span><br><span style='font-size:11px'>"+u.nombre+"</span></div></div>" +
       "<div style='text-align:center;font-family:\"DM Mono\",monospace;font-size:12px;color:var(--ink3)'>"+(minStock>0?minStock:"-")+"</div>" +
       "<div><input class='num-in' readonly id='ai-"+u.id+"' value='"+iv+"'></div>" +
       "<div><input class='num-in' type='number' min='0' id='ae-"+u.id+"' value='"+trEnt+"' oninput='calcRow(\""+u.id+"\")' "+(trEnt>0?"style='border-color:var(--accent);color:var(--accent);font-weight:600'":"")+" title='"+(trEnt>0?"Incluye "+trEnt+" por transferencia":"")+"'></div>" +
@@ -1056,6 +1092,44 @@ function renderDash() {
 }
 
 // ===== REQUISICION =====
+function setRqMode(mode) {
+  var changed = window.__rqMode !== mode;
+  window.__rqMode = mode;
+  var bs=document.getElementById("rq-mode-sede"), bg=document.getElementById("rq-mode-general");
+  var ps=document.getElementById("rq-sede-picker"), pg=document.getElementById("rq-general-picker");
+  if (bs) bs.className = mode==="sede" ? "btn btn-sm btn-primary" : "btn btn-sm";
+  if (bg) bg.className = mode==="general" ? "btn btn-sm btn-primary" : "btn btn-sm";
+  if (ps) ps.style.display = mode==="sede" ? "block" : "none";
+  if (pg) pg.style.display = mode==="general" ? "block" : "none";
+  if (changed) document.getElementById("rq-resultado").innerHTML = "";
+  if (mode==="general") {
+    renderRqGeneralSedesList();
+    if (!changed && window.__rqGeneralSedeIds && window.__rqGeneralSedeIds.length) renderRqGeneral();
+  } else {
+    if (!changed && document.getElementById("rq-sede").value) renderRq();
+  }
+}
+
+function renderRqGeneralSedesList() {
+  var wrap=document.getElementById("rq-general-sedes-list");
+  if (!wrap) return;
+  if (!window.__rqGeneralSelSedes) window.__rqGeneralSelSedes = {};
+  DB.sedes.forEach(function(s){ if (window.__rqGeneralSelSedes[s.id]===undefined) window.__rqGeneralSelSedes[s.id]=true; });
+  if (!DB.sedes.length) { wrap.innerHTML="<p style='font-size:12px;color:var(--ink3)'>No hay sedes registradas</p>"; return; }
+  var allChecked = DB.sedes.every(function(s){ return window.__rqGeneralSelSedes[s.id]; });
+  wrap.innerHTML =
+    "<label style='display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)'>" +
+      "<input type='checkbox' "+(allChecked?"checked":"")+" onchange='toggleRqGeneralAllSedes(this.checked)'> Todas las sedes ("+DB.sedes.length+")" +
+    "</label>" +
+    "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>" +
+    DB.sedes.map(function(s){
+      return "<label style='display:flex;align-items:center;gap:6px;font-size:13px'><input type='checkbox' "+(window.__rqGeneralSelSedes[s.id]?"checked":"")+" onchange='toggleRqGeneralSede(\""+s.id+"\",this.checked)'> "+s.nombre+"</label>";
+    }).join("") + "</div>";
+}
+
+function toggleRqGeneralSede(sid,val) { window.__rqGeneralSelSedes[sid]=val; renderRqGeneralSedesList(); }
+function toggleRqGeneralAllSedes(val) { DB.sedes.forEach(function(s){ window.__rqGeneralSelSedes[s.id]=val; }); renderRqGeneralSedesList(); }
+
 function calcRqList(sid) {
   var fisico=calcFisico(sid), list=[];
   DB.utensilios.forEach(function(u){
@@ -1099,15 +1173,16 @@ function renderRq() {
 
 function toggleRqSelect(uid) {
   window.__rqSelected[uid] = !window.__rqSelected[uid];
-  renderRqTable();
+  if (window.__rqMode==="general") renderRqGeneralTable(); else renderRqTable();
 }
 
 function toggleRqSelectAll(val) {
   var q=(document.getElementById("rq-search")&&document.getElementById("rq-search").value||"").toLowerCase().trim();
-  (window.__rqCurrentList||[]).forEach(function(r){
+  var list = window.__rqMode==="general" ? (window.__rqGeneralList||[]) : (window.__rqCurrentList||[]);
+  list.forEach(function(r){
     if (!q || (r.u.codigo+" "+r.u.nombre).toLowerCase().indexOf(q)!==-1) window.__rqSelected[r.u.id]=val;
   });
-  renderRqTable();
+  if (window.__rqMode==="general") renderRqGeneralTable(); else renderRqTable();
 }
 
 function renderRqTable() {
@@ -1226,6 +1301,181 @@ function exportRqPDF() {
     doc.save("requisicion_"+(sede?sede.nombre.replace(/\s/g,"_"):"sede")+"_"+new Date().toISOString().slice(0,10)+".pdf");
   } catch(err) {
     console.error("Error generando PDF de requisicion:", err);
+    toast("No se pudo generar el PDF: "+(err&&err.message?err.message:"error desconocido"),"err");
+  }
+}
+
+// ===== REQUISICION GENERAL (varias sedes consolidadas) =====
+function calcRqGeneral(sedeIds) {
+  var map={}, infoPorSede={};
+  sedeIds.forEach(function(sid){
+    var res=calcRqList(sid);
+    infoPorSede[sid] = { baseLabel:res.baseLabel, trCount:res.trCount };
+    res.list.forEach(function(r){
+      if (!map[r.u.id]) map[r.u.id]={ u:r.u, bySede:{}, totalReponer:0, costoTotal:0, costoUnit:r.costoUnit };
+      map[r.u.id].bySede[sid]=r.reponer;
+      map[r.u.id].totalReponer+=r.reponer;
+      map[r.u.id].costoTotal+=r.costoTotal;
+    });
+  });
+  var list=Object.keys(map).map(function(k){ return map[k]; });
+  list.sort(function(a,b){ return b.costoTotal-a.costoTotal; });
+  return { list:list, infoPorSede:infoPorSede };
+}
+
+function renderRqGeneral() {
+  var sedeIds=Object.keys(window.__rqGeneralSelSedes||{}).filter(function(sid){ return window.__rqGeneralSelSedes[sid]; });
+  var box=document.getElementById("rq-resultado");
+  if (!sedeIds.length) { box.innerHTML="<div class='empty'><i class='ti ti-building-store'></i><p>Selecciona al menos una sede</p></div>"; return; }
+  var sedesObjs=sedeIds.map(function(sid){ return DB.sedes.find(function(s){ return s.id===sid; }); }).filter(Boolean);
+  var res=calcRqGeneral(sedeIds);
+  window.__rqGeneralList=res.list;
+  window.__rqGeneralSedeIds=sedeIds;
+  window.__rqGeneralInfo=res.infoPorSede;
+  window.__rqSelected={};
+  res.list.forEach(function(r){ window.__rqSelected[r.u.id]=true; });
+  var infoLines=sedesObjs.map(function(s){
+    var info=res.infoPorSede[s.id];
+    return "<div>&bull; <strong>"+s.nombre+"</strong>: "+info.baseLabel+(info.trCount?" + "+info.trCount+" transferencia(s) posterior(es)":"")+"</div>";
+  }).join("");
+  box.innerHTML =
+    "<div class='alert alert-info' style='font-size:11px'><i class='ti ti-stack-2'></i><div style='margin-top:4px'>"+infoLines+"</div></div>" +
+    "<div style='margin:12px 0'><div style='position:relative'>" +
+      "<i class='ti ti-search' style='position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:15px;pointer-events:none'></i>" +
+      "<input type='text' id='rq-search' placeholder='Buscar utensilio por codigo o nombre...' oninput='renderRqGeneralTable()' style='padding:9px 10px 9px 34px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;width:100%;outline:none;background:var(--bg2);color:var(--ink)'>" +
+    "</div></div>" +
+    "<div class='btns' style='margin-bottom:10px'>" +
+      "<button class='btn btn-sm btn-success' onclick='exportRqGeneralExcel()'><i class='ti ti-file-spreadsheet'></i>Exportar Excel</button>" +
+      "<button class='btn btn-sm' style='background:var(--red-bg);color:var(--red);border-color:#FECACA' onclick='exportRqGeneralPDF()'><i class='ti ti-file-type-pdf'></i>Exportar PDF</button>" +
+    "</div>" +
+    "<div id='rq-tabla-wrap'></div>" +
+    "<div id='rq-total-box' style='margin-top:10px'></div>";
+  renderRqGeneralTable();
+}
+
+function renderRqGeneralTable() {
+  var list=window.__rqGeneralList||[];
+  var sedeIds=window.__rqGeneralSedeIds||[];
+  var sedesObjs=sedeIds.map(function(sid){ return DB.sedes.find(function(s){ return s.id===sid; }); }).filter(Boolean);
+  var q=(document.getElementById("rq-search")&&document.getElementById("rq-search").value||"").toLowerCase().trim();
+  var wrap=document.getElementById("rq-tabla-wrap"), totalBox=document.getElementById("rq-total-box");
+  if (!wrap) return;
+  if (!list.length) {
+    wrap.innerHTML="<div class='empty'><i class='ti ti-circle-check' style='color:var(--green)'></i><p>Ninguna de las sedes seleccionadas necesita reposicion.<br>Todo esta dentro o por encima del stock minimo.</p></div>";
+    if (totalBox) totalBox.innerHTML=""; return;
+  }
+  var filtered=list.filter(function(r){ return !q || (r.u.codigo+" "+r.u.nombre).toLowerCase().indexOf(q)!==-1; });
+  if (!filtered.length) {
+    wrap.innerHTML="<div class='empty'><i class='ti ti-search'></i><p>Sin resultados para \""+q+"\"</p></div>";
+  } else {
+    var allSelected=filtered.every(function(r){ return window.__rqSelected[r.u.id]; });
+    var headSedes=sedesObjs.map(function(s){ return "<th style='white-space:nowrap'>"+s.nombre+"</th>"; }).join("");
+    wrap.innerHTML =
+      "<label style='display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3);margin-bottom:8px'>" +
+        "<input type='checkbox' "+(allSelected?"checked":"")+" onchange='toggleRqSelectAll(this.checked)'> Seleccionar todos los visibles ("+filtered.length+")" +
+      "</label>" +
+      "<div class='tbl-wrap'><table><thead><tr><th></th><th>Codigo</th><th>Nombre</th>"+headSedes+"<th>Total</th><th>Costo Unit.</th><th>Costo Total</th></tr></thead><tbody>" +
+      filtered.map(function(r){
+        var sel=!!window.__rqSelected[r.u.id];
+        var sedeCells=sedesObjs.map(function(s){ var v=r.bySede[s.id]||0; return "<td style='"+(v>0?"color:var(--red);font-weight:700":"color:var(--ink3)")+"'>"+(v>0?v:"-")+"</td>"; }).join("");
+        return "<tr style='"+(sel?"":"opacity:.45")+"'>" +
+          "<td><input type='checkbox' "+(sel?"checked":"")+" onchange='toggleRqSelect(\""+r.u.id+"\")'></td>" +
+          "<td><span class='code-tag'>"+r.u.codigo+"</span></td>" +
+          "<td style='font-weight:500'>"+r.u.nombre+"</td>" +
+          sedeCells +
+          "<td style='color:var(--red);font-weight:700'>"+r.totalReponer+"</td>" +
+          "<td style='font-family:monospace;font-size:12px'>$"+r.costoUnit.toLocaleString("es-CO")+"</td>" +
+          "<td style='font-family:monospace;font-size:12px;font-weight:600'>$"+r.costoTotal.toLocaleString("es-CO")+"</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  var selList=list.filter(function(r){ return window.__rqSelected[r.u.id]; });
+  var total=selList.reduce(function(s,r){ return s+r.costoTotal; },0);
+  if (totalBox) totalBox.innerHTML =
+    "<div style='background:var(--accent-bg);border:1px solid #BFDBFE;border-radius:var(--radius);padding:14px;display:flex;align-items:center;justify-content:space-between'>" +
+    "<div style='font-weight:700;font-size:12px;color:var(--accent)'><i class='ti ti-shopping-cart' style='margin-right:4px'></i>Costo Total de Reposicion - "+sedesObjs.length+" sede(s) ("+selList.length+" de "+list.length+" seleccionado(s))</div>" +
+    "<div style='font-size:20px;font-weight:700;font-family:\"DM Mono\",monospace;color:var(--accent)'>$"+total.toLocaleString("es-CO")+"</div></div>";
+}
+
+function exportRqGeneralExcel() {
+  if (typeof XLSX === "undefined") { toast("No se pudo cargar el generador de Excel. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
+  try {
+    var sedeIds=window.__rqGeneralSedeIds||[];
+    var list=(window.__rqGeneralList||[]).filter(function(r){ return window.__rqSelected && window.__rqSelected[r.u.id]; });
+    if (!sedeIds.length) { toast("Selecciona al menos una sede","err"); return; }
+    if (!list.length) { toast("Selecciona al menos un utensilio para exportar","err"); return; }
+    var sedesObjs=sedeIds.map(function(sid){ return DB.sedes.find(function(s){ return s.id===sid; }); }).filter(Boolean);
+    var header=["Codigo","Nombre"].concat(sedesObjs.map(function(s){ return s.nombre; })).concat(["Total A Reponer","Costo Unitario","Costo Total"]);
+    var rows=[header];
+    var total=0;
+    list.forEach(function(r){
+      total+=r.costoTotal;
+      rows.push([r.u.codigo,r.u.nombre].concat(sedesObjs.map(function(s){ return r.bySede[s.id]||0; })).concat([r.totalReponer,r.costoUnit,r.costoTotal]));
+    });
+    rows.push([]);
+    var totalRow=header.map(function(h,i){ if (i===header.length-2) return "TOTAL"; if (i===header.length-1) return total; return ""; });
+    rows.push(totalRow);
+    var ws=XLSX.utils.aoa_to_sheet(rows), wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Requisicion General");
+    XLSX.writeFile(wb,"requisicion_general_"+new Date().toISOString().slice(0,10)+".xlsx");
+  } catch(err) {
+    console.error("Error generando Excel de requisicion general:", err);
+    toast("No se pudo generar el Excel: "+(err&&err.message?err.message:"error desconocido"),"err");
+  }
+}
+
+function exportRqGeneralPDF() {
+  if (!window.jspdf || !window.jspdf.jsPDF) { toast("No se pudo cargar el generador de PDF. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
+  try {
+    var sedeIds=window.__rqGeneralSedeIds||[];
+    var list=(window.__rqGeneralList||[]).filter(function(r){ return window.__rqSelected && window.__rqSelected[r.u.id]; });
+    if (!sedeIds.length) { toast("Selecciona al menos una sede","err"); return; }
+    if (!list.length) { toast("Selecciona al menos un utensilio para exportar","err"); return; }
+    var sedesObjs=sedeIds.map(function(sid){ return DB.sedes.find(function(s){ return s.id===sid; }); }).filter(Boolean);
+    var jsPDF=window.jspdf.jsPDF;
+    var doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+    if (typeof doc.autoTable !== "function") { toast("No se pudo cargar el modulo de tablas del PDF. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
+    var fmtMoney=function(n){ return (n<0?"-$":"$")+Math.abs(n).toLocaleString("es-CO"); };
+    var pageW=297;
+    doc.setFillColor(17,24,39);doc.rect(0,0,pageW,32,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(15);doc.setFont("helvetica","bold");
+    doc.text("Cronch Artesanalmente Oblea",14,11);
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text("Sistema de Inventario de Utensilios  |  Gestion · Auditoria · Trazabilidad",14,18);
+    doc.setFillColor(220,38,38);doc.rect(0,24,pageW,8,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont("helvetica","bold");
+    doc.text("REQUISICION GENERAL DE UTENSILIOS",14,29);
+    doc.text("Generado: "+new Date().toLocaleDateString("es-CO"),pageW-14,29,{align:"right"});
+    doc.setTextColor(17,24,39);doc.setFillColor(243,244,246);doc.rect(0,32,pageW,14,"F");
+    doc.setFontSize(10);doc.setFont("helvetica","bold");
+    doc.text("Sedes incluidas: "+sedesObjs.map(function(s){ return s.nombre; }).join(", "),14,41);
+    var head=[["#","Foto","Codigo","Nombre"].concat(sedesObjs.map(function(s){ return s.nombre; })).concat(["Total","Costo Unit.","Costo Total"])];
+    var totalColIndex=4+sedesObjs.length;
+    var total=0;
+    var body=list.map(function(r,i){
+      total+=r.costoTotal;
+      return [i+1,"",r.u.codigo,r.u.nombre].concat(sedesObjs.map(function(s){ var v=r.bySede[s.id]||0; return v>0?v:"-"; })).concat([r.totalReponer,fmtMoney(r.costoUnit),fmtMoney(r.costoTotal)]);
+    });
+    doc.autoTable({startY:50,head:head,body:body,theme:"grid",headStyles:{fillColor:[220,38,38],textColor:255,fontStyle:"bold",fontSize:8},bodyStyles:{fontSize:8,minCellHeight:16},alternateRowStyles:{fillColor:[249,250,251]},
+      columnStyles:{1:{cellWidth:16}},
+      didParseCell:function(d){ if(d.section==="body"&&d.column.index===totalColIndex){ d.cell.styles.textColor=[220,38,38]; d.cell.styles.fontStyle="bold"; } },
+      didDrawCell:function(d){
+        if (d.section==="body" && d.column.index===1) {
+          var r=list[d.row.index];
+          if (r && r.u && r.u.imagen) {
+            try { var pad=1.2, size=Math.min(d.cell.width,d.cell.height)-pad*2; doc.addImage(r.u.imagen,"JPEG",d.cell.x+pad,d.cell.y+pad,size,size); }
+            catch(e) { console.warn("No se pudo insertar imagen del utensilio:", e); }
+          }
+        }
+      }
+    });
+    var y=doc.lastAutoTable.finalY+8;
+    if (y>180) { doc.addPage(); y=20; }
+    doc.setFillColor(17,24,39);doc.roundedRect(14,y,pageW-28,16,4,4,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont("helvetica","bold");
+    doc.text("COSTO TOTAL DE REPOSICION (TODAS LAS SEDES SELECCIONADAS)",18,y+10);
+    doc.setFontSize(14);doc.text(fmtMoney(total),pageW-18,y+10,{align:"right"});
+    doc.save("requisicion_general_"+new Date().toISOString().slice(0,10)+".pdf");
+  } catch(err) {
+    console.error("Error generando PDF de requisicion general:", err);
     toast("No se pudo generar el PDF: "+(err&&err.message?err.message:"error desconocido"),"err");
   }
 }
