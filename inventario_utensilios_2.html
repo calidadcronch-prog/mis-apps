@@ -164,7 +164,7 @@ input[type=file]{display:none}
     </div>
   </div>
   <div class="tbl-wrap" style="margin-bottom:12px">
-    <table><thead><tr><th></th><th>Codigo</th><th>Nombre</th><th>Unidad</th><th>Valor Unit.</th><th></th></tr></thead><tbody id="tb-uten"></tbody></table>
+    <table><thead><tr><th></th><th>Codigo</th><th>Nombre</th><th>Descripcion</th><th>Unidad</th><th>Valor Unit.</th><th></th></tr></thead><tbody id="tb-uten"></tbody></table>
   </div>
   <button class="btn btn-sm btn-danger" onclick="borrarTodosUten()"><i class="ti ti-trash"></i>Borrar todos los utensilios</button>
 </div>
@@ -231,7 +231,7 @@ input[type=file]{display:none}
     <div class="fg" style="margin-bottom:10px"><label>Sede</label><select id="au-sede" onchange="loadAudForm()"><option value="">Seleccionar</option></select></div>
     <div class="form-row c2">
       <div class="fg"><label>Periodo</label><input type="month" id="au-mes" onchange="renderAudTable(null,null)"></div>
-      <div class="fg"><label>Fecha de la auditoria</label><input type="date" id="au-fecha"></div>
+      <div class="fg"><label>Fecha de la auditoria</label><input type="date" id="au-fecha" onchange="renderAudTable(null,null)"></div>
     </div>
     <div class="fg"><label>Notas</label><input type="text" id="au-notas" placeholder="Observaciones..."></div>
     <div class="fg" style="margin-top:8px"><label>Cargar inventario inicial</label>
@@ -361,6 +361,10 @@ input[type=file]{display:none}
       <div class="fg"><label>Unidad</label><input value="unidad" readonly style="background:var(--bg3);color:var(--ink3)"></div>
     </div>
     <div class="fg" style="margin-bottom:14px">
+      <label>Descripcion (tamaño, color, material, etc.)</label>
+      <textarea id="mu-desc" placeholder="Ej: Tamaño 8oz, color transparente, vidrio templado" style="width:100%;min-height:56px;padding:9px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--bg2);color:var(--ink);resize:vertical"></textarea>
+    </div>
+    <div class="fg" style="margin-bottom:14px">
       <label>Foto de referencia (opcional)</label>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="mu-img-preview" style="width:64px;height:64px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0"><i class="ti ti-photo" style="color:var(--ink3);font-size:22px"></i></div>
@@ -477,14 +481,14 @@ function renderUten() {
   var q = (document.getElementById("uten-search")&&document.getElementById("uten-search").value||"").toLowerCase().trim();
   var countEl = document.getElementById("uten-search-count");
   if (!DB.utensilios.length) {
-    tb.innerHTML = "<tr><td colspan='6'><div class='empty'><i class='ti ti-tool'></i><p>Sin utensilios</p></div></td></tr>";
+    tb.innerHTML = "<tr><td colspan='7'><div class='empty'><i class='ti ti-tool'></i><p>Sin utensilios</p></div></td></tr>";
     if (countEl) countEl.textContent = "";
     return;
   }
   var list = DB.utensilios.filter(function(u){ return !q || (u.codigo+" "+u.nombre).toLowerCase().indexOf(q)!==-1; });
   if (countEl) countEl.textContent = q ? (list.length+" de "+DB.utensilios.length) : "";
   if (!list.length) {
-    tb.innerHTML = "<tr><td colspan='6'><div class='empty'><i class='ti ti-search'></i><p>Sin resultados para \""+q+"\"</p></div></td></tr>";
+    tb.innerHTML = "<tr><td colspan='7'><div class='empty'><i class='ti ti-search'></i><p>Sin resultados para \""+q+"\"</p></div></td></tr>";
     return;
   }
   tb.innerHTML = list.map(function(u) {
@@ -496,10 +500,12 @@ function renderUten() {
       "<td>"+thumb+"</td>" +
       "<td><span class='code-tag'>" + u.codigo + "</span></td>" +
       "<td style='font-weight:500'>" + u.nombre + "</td>" +
+      "<td style='font-size:12px;color:var(--ink3);max-width:160px'>" + (u.descripcion?u.descripcion:"-") + "</td>" +
       "<td><span class='badge b-gray'>unidad</span></td>" +
       "<td style='font-family:monospace;font-size:12px'>" + val + "</td>" +
       "<td style='white-space:nowrap'>" +
         "<button class='btn btn-xs' style='background:#EEF2FF;color:#6366F1;border:1px solid #C7D2FE;margin-right:4px' onclick='editUten(\"" + u.id + "\")'><i class='ti ti-pencil'></i></button>" +
+        "<button class='btn btn-xs' style='background:var(--red-bg);color:var(--red);border:1px solid #FECACA;margin-right:4px' onclick='exportFichaTecnica(\"" + u.id + "\")' title='Descargar ficha tecnica'><i class='ti ti-file-type-pdf'></i></button>" +
         "<button class='btn btn-xs btn-danger' onclick='delUten(\"" + u.id + "\")'><i class='ti ti-trash'></i></button>" +
       "</td></tr>";
   }).join("");
@@ -557,6 +563,7 @@ function nuevoUten() {
   document.getElementById("mu-cod").value = "";
   document.getElementById("mu-nom").value = "";
   document.getElementById("mu-valor").value = "";
+  document.getElementById("mu-desc").value = "";
   __mu_imagen_data = null;
   updateMuImgPreview();
   document.getElementById("uten-modal-title").innerHTML = "<i class='ti ti-tool' style='color:var(--accent);margin-right:6px'></i>Nuevo Utensilio";
@@ -570,6 +577,7 @@ function editUten(id) {
   document.getElementById("mu-cod").value = u.codigo;
   document.getElementById("mu-nom").value = u.nombre;
   document.getElementById("mu-valor").value = u.valor || "";
+  document.getElementById("mu-desc").value = u.descripcion || "";
   __mu_imagen_data = u.imagen || null;
   updateMuImgPreview();
   document.getElementById("uten-modal-title").innerHTML = "<i class='ti ti-pencil' style='color:var(--accent);margin-right:6px'></i>Editar Utensilio";
@@ -581,20 +589,22 @@ function saveUten() {
   var cod = document.getElementById("mu-cod").value.trim().toUpperCase();
   var nom = document.getElementById("mu-nom").value.trim();
   var valor = parseFloat(document.getElementById("mu-valor").value) || 0;
+  var desc = document.getElementById("mu-desc").value.trim();
   if (!cod || !nom) { toast("Codigo y nombre requeridos","err"); return; }
   var dup = DB.utensilios.find(function(u){ return u.codigo===cod && u.id!==editId; });
   if (dup) { toast("Ese codigo ya existe","err"); return; }
   if (editId) {
     var idx = DB.utensilios.findIndex(function(u){ return u.id===editId; });
-    if (idx!==-1) { DB.utensilios[idx].codigo=cod; DB.utensilios[idx].nombre=nom; DB.utensilios[idx].valor=valor; DB.utensilios[idx].imagen=__mu_imagen_data||null; }
+    if (idx!==-1) { DB.utensilios[idx].codigo=cod; DB.utensilios[idx].nombre=nom; DB.utensilios[idx].valor=valor; DB.utensilios[idx].descripcion=desc; DB.utensilios[idx].imagen=__mu_imagen_data||null; }
   } else {
-    DB.utensilios.push({id:"u-"+Date.now(), codigo:cod, nombre:nom, unidad:"unidad", valor:valor, imagen:__mu_imagen_data||null});
+    DB.utensilios.push({id:"u-"+Date.now(), codigo:cod, nombre:nom, unidad:"unidad", valor:valor, descripcion:desc, imagen:__mu_imagen_data||null});
   }
   DB.utensilios.sort(function(a,b){ return (a.codigo||"").localeCompare(b.codigo||""); });
   document.getElementById("mu-id").value = "";
   document.getElementById("mu-cod").value = "";
   document.getElementById("mu-nom").value = "";
   document.getElementById("mu-valor").value = "";
+  document.getElementById("mu-desc").value = "";
   __mu_imagen_data = null;
   closeModal("ov-uten");
   saveAll().then(function(){ renderUten(); toast(editId?"Utensilio actualizado":"Utensilio guardado","ok"); });
@@ -604,6 +614,76 @@ function delUten(id) {
   if (!confirm("Eliminar este utensilio?")) return;
   DB.utensilios = DB.utensilios.filter(function(u){ return u.id!==id; });
   saveAll().then(function(){ renderUten(); });
+}
+
+function exportFichaTecnica(id) {
+  if (!window.jspdf || !window.jspdf.jsPDF) { toast("No se pudo cargar el generador de PDF. Revisa tu conexion a internet y recarga la pagina.","err"); return; }
+  try {
+    var u = DB.utensilios.find(function(x){ return x.id===id; });
+    if (!u) { toast("Utensilio no encontrado","err"); return; }
+    var jsPDF=window.jspdf.jsPDF;
+    var doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    var pageW=210;
+    doc.setFillColor(17,24,39);doc.rect(0,0,pageW,32,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(15);doc.setFont("helvetica","bold");
+    doc.text("Cronch Artesanalmente Oblea",14,11);
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text("Sistema de Inventario de Utensilios  |  Gestion · Auditoria · Trazabilidad",14,18);
+    doc.setFillColor(220,38,38);doc.rect(0,24,pageW,8,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont("helvetica","bold");
+    doc.text("FICHA TECNICA DE UTENSILIO",14,29);
+    doc.text("Generado: "+new Date().toLocaleDateString("es-CO"),pageW-14,29,{align:"right"});
+
+    var imgSize=60, imgX=14, imgY=42;
+    doc.setDrawColor(229,231,235);doc.setFillColor(249,250,251);
+    doc.roundedRect(imgX,imgY,imgSize,imgSize,3,3,"FD");
+    if (u.imagen) {
+      try { doc.addImage(u.imagen,"JPEG",imgX+2,imgY+2,imgSize-4,imgSize-4); }
+      catch(e) { console.warn("No se pudo insertar imagen:",e); }
+    } else {
+      doc.setTextColor(156,163,175);doc.setFontSize(9);doc.setFont("helvetica","normal");
+      doc.text("Sin foto",imgX+imgSize/2,imgY+imgSize/2,{align:"center"});
+    }
+
+    var infoX=imgX+imgSize+12, infoY=imgY+2;
+    doc.setTextColor(17,24,39);doc.setFontSize(17);doc.setFont("helvetica","bold");
+    var nombreLines=doc.splitTextToSize(u.nombre||"-",pageW-infoX-14);
+    doc.text(nombreLines,infoX,infoY+6);
+    var afterNombreY=infoY+6+(nombreLines.length-1)*7+10;
+
+    doc.setFillColor(243,244,246);doc.roundedRect(infoX,afterNombreY-5,32,8,2,2,"F");
+    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(75,85,99);
+    doc.text(u.codigo||"-",infoX+16,afterNombreY,{align:"center"});
+
+    var rowY=afterNombreY+14;
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+    doc.text("UNIDAD DE MEDIDA",infoX,rowY);
+    doc.setFontSize(11);doc.setFont("helvetica","normal");doc.setTextColor(17,24,39);
+    doc.text(u.unidad||"unidad",infoX,rowY+6);
+
+    doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(156,163,175);
+    doc.text("VALOR UNITARIO",infoX,rowY+16);
+    doc.setFontSize(13);doc.setFont("helvetica","bold");doc.setTextColor(13,110,253);
+    doc.text(u.valor?"$"+Number(u.valor).toLocaleString("es-CO"):"-",infoX,rowY+23);
+
+    var descY=imgY+imgSize+16;
+    doc.setDrawColor(229,231,235);doc.line(14,descY-8,pageW-14,descY-8);
+    doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(75,85,99);
+    doc.text("DESCRIPCION (Tamaño, color, material, etc.)",14,descY);
+    doc.setFontSize(11);doc.setFont("helvetica","normal");doc.setTextColor(17,24,39);
+    var descText=u.descripcion&&u.descripcion.trim()?u.descripcion.trim():"Sin descripcion registrada.";
+    var descLines=doc.splitTextToSize(descText,pageW-28);
+    doc.text(descLines,14,descY+8);
+
+    var footY=280;
+    doc.setDrawColor(229,231,235);doc.line(14,footY,pageW-14,footY);
+    doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(156,163,175);
+    doc.text("Ficha generada automaticamente desde el Sistema de Inventario de Utensilios de Cronch Artesanalmente Oblea.",14,footY+6);
+
+    doc.save("ficha_tecnica_"+(u.codigo||"utensilio").replace(/\s/g,"_")+".pdf");
+  } catch(err) {
+    console.error("Error generando ficha tecnica:", err);
+    toast("No se pudo generar la ficha tecnica: "+(err&&err.message?err.message:"error desconocido"),"err");
+  }
 }
 
 function borrarTodosUten() {
@@ -848,27 +928,29 @@ function loadAudSel() {
 
 function loadAudForm(){
   loadAudSel();
-  renderAudTable(null,null);
   var fEl=document.getElementById("au-fecha");
   if (fEl && !fEl.value) fEl.value=new Date().toISOString().slice(0,10);
+  renderAudTable(null,null);
 }
 
 function renderAudTable(preIni, preFin) {
   var sid=document.getElementById("au-sede").value;
   var mes=document.getElementById("au-mes").value;
+  var fechaAud=document.getElementById("au-fecha")?document.getElementById("au-fecha").value:"";
   var body=document.getElementById("aud-form-body"), actions=document.getElementById("aud-actions");
   if (!sid||!DB.utensilios.length) { body.innerHTML=""; actions.style.display="none"; document.getElementById("aud-buscador").style.display="none"; return; }
   actions.style.display="block";
   document.getElementById("aud-buscador").style.display="block";
   document.getElementById("aud-search").value="";
-  var trMes = mes ? (DB.transferencias||[]).filter(function(t){ return t.mes===mes && (t.sedeOrigen===sid||t.sedeDestino===sid); }) : [];
+  var cpAud = getUltimoCheckpoint(sid);
+  var trMes = getTransferenciasDesdeCheckpoint(sid, cpAud, fechaAud||null);
   var trInfo = document.getElementById("aud-tr-info");
   if (trInfo) {
     if (trMes.length) {
       var trEntCant=trMes.filter(function(t){return t.sedeDestino===sid;}).length;
       var trSalCant=trMes.filter(function(t){return t.sedeOrigen===sid;}).length;
       trInfo.style.display="flex";
-      trInfo.innerHTML="<i class='ti ti-transfer'></i>Se cargaron automaticamente "+trMes.length+" transferencia(s) del periodo "+mes+": "+trEntCant+" como entrada(s) y "+trSalCant+" como salida(s). Puedes ajustar los valores si es necesario.";
+      trInfo.innerHTML="<i class='ti ti-transfer'></i>Se cargaron automaticamente "+trMes.length+" transferencia(s) desde <strong>"+cpAud.label+"</strong> hasta hoy: "+trEntCant+" como entrada(s) y "+trSalCant+" como salida(s). Puedes ajustar los valores si es necesario.";
     } else { trInfo.style.display="none"; }
   }
   var h="<div class='aud-wrap' id='aud-tabla-wrap'><div class='aud-grid head'><div>Codigo / Utensilio</div><div>Min.</div><div>Ini.</div><div>Entr.</div><div>Sal.</div><div>Final</div><div>Dif.</div><div>Valor</div><div>Estado</div></div>";
@@ -1481,34 +1563,40 @@ function exportRqGeneralPDF() {
 }
 
 // ===== INVENTARIO FISICO =====
-function calcFisico(sid) {
-  var baseQty={}, baseMes=null, baseFecha=null, baseLabel="Sin inventario ni auditoria registrada para esta sede (todo en 0)";
+function getUltimoCheckpoint(sid) {
   var lastAud=DB.auditorias.filter(function(a){ return a.sedeId===sid; }).sort(function(a,b){
     var af=a.fecha||(a.creadoEn?a.creadoEn.slice(0,10):(a.mes+"-01")), bf=b.fecha||(b.creadoEn?b.creadoEn.slice(0,10):(b.mes+"-01"));
     return bf.localeCompare(af) || (b.creadoEn||"").localeCompare(a.creadoEn||"");
   })[0];
   if (lastAud) {
-    DB.utensilios.forEach(function(u){ baseQty[u.id]=lastAud.invFinal&&lastAud.invFinal[u.id]||0; });
-    baseMes=lastAud.mes;
-    baseFecha=lastAud.fecha||(lastAud.creadoEn?lastAud.creadoEn.slice(0,10):null);
-    baseLabel="Auditoria de "+lastAud.mes+(baseFecha?" (dia "+baseFecha.split("-").reverse().join("/")+")":"")+(lastAud.tasaExactitud!==undefined?" - Exactitud "+lastAud.tasaExactitud+"%":"");
-  } else {
-    var lastInv=DB.inventarios.filter(function(i){ return i.sedeId===sid; }).sort(function(a,b){ return b.mes.localeCompare(a.mes); })[0];
-    if (lastInv) {
-      DB.utensilios.forEach(function(u){ baseQty[u.id]=lastInv.cantidades&&lastInv.cantidades[u.id]||0; });
-      baseMes=lastInv.mes;
-      baseFecha=lastInv.creadoEn?lastInv.creadoEn.slice(0,10):null;
-      baseLabel="Inventario Inicial de "+lastInv.mes;
-    } else {
-      DB.utensilios.forEach(function(u){ baseQty[u.id]=0; });
-    }
+    var fecha=lastAud.fecha||(lastAud.creadoEn?lastAud.creadoEn.slice(0,10):null);
+    return { tipo:"auditoria", mes:lastAud.mes, fecha:fecha, ref:lastAud,
+      label:"Auditoria de "+lastAud.mes+(fecha?" (dia "+fecha.split("-").reverse().join("/")+")":"")+(lastAud.tasaExactitud!==undefined?" - Exactitud "+lastAud.tasaExactitud+"%":"") };
   }
-  var trAfter=(DB.transferencias||[]).filter(function(t){
+  var lastInv=DB.inventarios.filter(function(i){ return i.sedeId===sid; }).sort(function(a,b){ return b.mes.localeCompare(a.mes); })[0];
+  if (lastInv) {
+    return { tipo:"inventario", mes:lastInv.mes, fecha:lastInv.creadoEn?lastInv.creadoEn.slice(0,10):null, ref:lastInv, label:"Inventario Inicial de "+lastInv.mes };
+  }
+  return { tipo:null, mes:null, fecha:null, ref:null, label:"Sin inventario ni auditoria registrada para esta sede (todo en 0)" };
+}
+
+function getTransferenciasDesdeCheckpoint(sid, cp, hasta) {
+  return (DB.transferencias||[]).filter(function(t){
     if (t.sedeOrigen!==sid && t.sedeDestino!==sid) return false;
     var tFecha=t.fecha||(t.creadoEn?t.creadoEn.slice(0,10):null);
-    if (baseFecha && tFecha) return tFecha>baseFecha;
-    return !baseMes || t.mes>baseMes;
+    if (hasta && tFecha && tFecha>hasta) return false;
+    if (cp.fecha && tFecha) return tFecha>cp.fecha;
+    return !cp.mes || t.mes>cp.mes;
   });
+}
+
+function calcFisico(sid) {
+  var cp=getUltimoCheckpoint(sid);
+  var baseQty={};
+  if (cp.tipo==="auditoria") { DB.utensilios.forEach(function(u){ baseQty[u.id]=cp.ref.invFinal&&cp.ref.invFinal[u.id]||0; }); }
+  else if (cp.tipo==="inventario") { DB.utensilios.forEach(function(u){ baseQty[u.id]=cp.ref.cantidades&&cp.ref.cantidades[u.id]||0; }); }
+  else { DB.utensilios.forEach(function(u){ baseQty[u.id]=0; }); }
+  var trAfter=getTransferenciasDesdeCheckpoint(sid, cp);
   var current={};
   DB.utensilios.forEach(function(u){ current[u.id]=baseQty[u.id]; });
   trAfter.forEach(function(t){
@@ -1518,7 +1606,7 @@ function calcFisico(sid) {
       if (t.sedeOrigen===sid) current[uid]-=t.cantidades[uid]||0;
     });
   });
-  return { current:current, baseLabel:baseLabel, baseMes:baseMes, trCount:trAfter.length,
+  return { current:current, baseLabel:cp.label, baseMes:cp.mes, trCount:trAfter.length,
     trEntradas:trAfter.filter(function(t){ return t.sedeDestino===sid; }).length,
     trSalidas:trAfter.filter(function(t){ return t.sedeOrigen===sid; }).length };
 }
